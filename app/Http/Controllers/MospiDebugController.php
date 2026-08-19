@@ -105,7 +105,8 @@ class MospiDebugController extends Controller
 
         // 2. Call MoSPI MCP API with method 'get_metadata' and dataset argument
         $response = $this->callMospiApi('get_metadata', [
-            'dataset' => $dataset,
+            
+            'dataset' => $dataset, 
             'indicator_code' => 1,
         ]);
 
