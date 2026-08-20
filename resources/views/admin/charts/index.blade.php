@@ -123,7 +123,7 @@
                                         <label class="block text-[11px] font-bold text-gray-500 uppercase mb-1">
                                             Theme Order
                                         </label>
-                                        <input 
+                                        <input  
                                             type="number" 
                                             name="display_order" 
                                             value="{{ $displayOrder }}" 
