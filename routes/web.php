@@ -118,7 +118,7 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::post('/indicators', [IndicatorController::class, 'store'])->name('indicators.store');
     Route::post('/indicators/{indicator}/update-source', [IndicatorController::class, 'updateSource'])->name('indicators.update-source');
     
- 
+  
     // // chart type
         Route::resource('chart-types', ChartTypeController::class);
 

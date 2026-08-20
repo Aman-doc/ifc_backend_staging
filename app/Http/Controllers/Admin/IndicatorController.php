@@ -133,33 +133,6 @@ public function update(Request $request, $id)
     }
 
 
-    // public function updateSource(Request $request, Indicator $indicator)
-    // {
-    //     $request->validate([
-    //         'theme_id' => 'required|integer',
-    //         'source_text' => 'nullable|string|max:500'
-    //     ]);
-
-    //     $themeId = $request->theme_id;
-    //     $sourceText = $request->source_text;
-
-    //     // Pehle se saved source JSON array nikalen ya empty array fallback lagayein
-    //     $currentSource = $indicator->source ?? [];
-
-    //     // Agar array format me na ho (safety check)
-    //     if (!is_array($currentSource)) {
-    //         $currentSource = json_decode($currentSource, true) ?? [];
-    //     }
-
-    //     // Specific theme_id ko key banakar text map karein
-    //     $currentSource[$themeId] = $sourceText;
-
-    //     // Model me save karein (Make sure $casts = ['source' => 'array'] is in Indicator model)
-    //     $indicator->source = $currentSource;
-    //     $indicator->save();
- 
-    //     return redirect()->back()->with('success', 'Indicator source text updated successfully for this theme!');
-    // }
     public function updateSource(Request $request, Indicator $indicator)
     {
         $request->validate([

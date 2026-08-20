@@ -133,6 +133,19 @@ class BigQueryService
             $whereClause = "WHERE " . implode(" AND ", $whereConditions);
 
             // --- 2. Dynamic Table Injection ---
+            // $dataQuery = "
+            //         SELECT 
+            //             data_source_id, 
+            //             indicator_id, 
+            //             state_id, 
+            //             year, 
+            //             value, 
+            //             TO_JSON_STRING(additional_filters) AS additional_filters
+            //         FROM {$fullTablePath} 
+            //         {$whereClause} 
+            //         LIMIT {$perPage} OFFSET {$offset}
+            //     ";
+
             $dataQuery = "
                     SELECT 
                         data_source_id, 
@@ -143,8 +156,10 @@ class BigQueryService
                         TO_JSON_STRING(additional_filters) AS additional_filters
                     FROM {$fullTablePath} 
                     {$whereClause} 
+                    ORDER BY data_source_id, indicator_id, state_id, year, value
                     LIMIT {$perPage} OFFSET {$offset}
                 ";
+            
 
             // COUNT(*) OVER() BigQuery me LIMIT ke baad rows count karta hai (sirf current page ki rows),
             // isliye alag COUNT query chalani padti hai taaki accurate total mile.

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Theme;
+use App\Models\SubIndicator;
 use App\Models\Indicator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -311,9 +312,14 @@ class ThemeController extends Controller
 
         $executionTime = round((microtime(true) - $startTime) * 1000, 2);
 
+        $subIndicators = SubIndicator::where('indicator_id', $indicatorId)
+                        ->whereNotNull('alias_name')
+                        ->where('alias_name', '!=', '')
+                        ->get(['id', 'indicator_id', 'name', 'alias_name']);
         // 5. Response Builder
         $response = [
             'data' => $dataList,
+            'subIndicators' => $subIndicators,
         ];
 
         // Agar pagination query me bheja tha tabhi pagination block include karein
