@@ -223,7 +223,7 @@ class MospiController extends Controller
         // "PLFS",  //done on local
         // "CPI",
         // "IIP",
-        // "ASI",
+        "ASI",
         // "NAS",
         // "WPI",
         // "ENERGY",
@@ -238,7 +238,7 @@ class MospiController extends Controller
         //    "NSS76",
         //    "NSS75E",
         //    "NSS79",
-            "CPIALRL",
+            // "CPIALRL",
         //    "HCES",
         //    "TUS",
             // "EC",
