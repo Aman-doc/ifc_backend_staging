@@ -133,31 +133,72 @@ public function update(Request $request, $id)
     }
 
 
+    // public function updateSource(Request $request, Indicator $indicator)
+    // {
+    //     $request->validate([
+    //         'theme_id' => 'required|integer',
+    //         'source_text' => 'nullable|string|max:500'
+    //     ]);
+
+    //     $themeId = $request->theme_id;
+    //     $sourceText = $request->source_text;
+
+    //     // Pehle se saved source JSON array nikalen ya empty array fallback lagayein
+    //     $currentSource = $indicator->source ?? [];
+
+    //     // Agar array format me na ho (safety check)
+    //     if (!is_array($currentSource)) {
+    //         $currentSource = json_decode($currentSource, true) ?? [];
+    //     }
+
+    //     // Specific theme_id ko key banakar text map karein
+    //     $currentSource[$themeId] = $sourceText;
+
+    //     // Model me save karein (Make sure $casts = ['source' => 'array'] is in Indicator model)
+    //     $indicator->source = $currentSource;
+    //     $indicator->save();
+ 
+    //     return redirect()->back()->with('success', 'Indicator source text updated successfully for this theme!');
+    // }
     public function updateSource(Request $request, Indicator $indicator)
     {
         $request->validate([
             'theme_id' => 'required|integer',
-            'source_text' => 'nullable|string|max:500'
+            'source_text' => 'nullable|string|max:500',
+            'display_order' => 'nullable|integer|min:0'
         ]);
 
         $themeId = $request->theme_id;
-        $sourceText = $request->source_text;
 
-        // Pehle se saved source JSON array nikalen ya empty array fallback lagayein
-        $currentSource = $indicator->source ?? [];
+        // Existing JSON array fetch karein
+        $currentData = $indicator->source ?? [];
 
-        // Agar array format me na ho (safety check)
-        if (!is_array($currentSource)) {
-            $currentSource = json_decode($currentSource, true) ?? [];
+        if (!is_array($currentData)) {
+            $currentData = json_decode($currentData, true) ?? [];
         }
 
-        // Specific theme_id ko key banakar text map karein
-        $currentSource[$themeId] = $sourceText;
+        // Purane data ko preserve karte hue update karein
+        $existingThemeData = $currentData[$themeId] ?? [];
 
-        // Model me save karein (Make sure $casts = ['source' => 'array'] is in Indicator model)
-        $indicator->source = $currentSource;
+        // Agar purana data plain string tha (backward compatibility for old saved values)
+        if (is_string($existingThemeData)) {
+            $existingThemeData = ['text' => $existingThemeData, 'order' => 0];
+        }
+
+        // New values update
+        $currentData[$themeId] = [
+            'text' => $request->filled('source_text') ? $request->source_text : ($existingThemeData['text'] ?? ''),
+            'order' => $request->filled('display_order') ? (int) $request->display_order : ($existingThemeData['order'] ?? 0),
+        ];
+
+        // Model save
+        $indicator->source = $currentData;
         $indicator->save();
 
-        return redirect()->back()->with('success', 'Indicator source text updated successfully for this theme!');
+        return redirect()->back()->with('success', 'Theme Source & Order saved successfully!');
     }
+   
+   
+   
+   
 }

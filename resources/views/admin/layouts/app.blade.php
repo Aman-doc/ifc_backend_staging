@@ -101,6 +101,14 @@
                         <span>Manage Indicators</span>
                     </a>
 
+                    <a href="{{ route('admin.sub-indicators.index') }}" 
+                    class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all {{ request()->routeIs('admin.sub-indicators.*') ? 'bg-green-600 text-white' : 'text-gray-600 hover:bg-gray-100' }}">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" />
+                        </svg>
+                        <span>Manage Sub Indicators</span>
+                    </a>
+
                 <a href="{{ route('admin.indicator_data.index') }}" 
                 class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all {{ request()->routeIs('admin.indicator_data.*') ? 'bg-green-600 text-white' : 'text-gray-600 hover:bg-gray-100' }}">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

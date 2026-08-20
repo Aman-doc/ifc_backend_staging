@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\DataSource;
+use App\Models\SubIndicator;
 use App\Services\StateResolverService;
 use Google\Cloud\BigQuery\BigQueryClient;
 use Illuminate\Bus\Queueable;
@@ -621,7 +622,7 @@ class ProcessSourceDataImportJob implements ShouldQueue
                 Log::info("Progress update: Processed indicator {$savedIndicatorsCount}/" . count($indicators) . " ({$indicatorCode}). Added {$indicatorInsertedRows} rows. Total BigQuery rows so far: {$totalSavedRecords}");
             }
          }
-        else if ($datasetSource === "NSS79" || $datasetSource === "HCES" || $datasetSource === "MNRE" ||  $datasetSource === "AISHE" ){
+        else if ($datasetSource === "NSS79" || $datasetSource === "HCES" || $datasetSource === "MNRE" ||  $datasetSource === "AISHE" ||  $datasetSource === "NFHS"){
             $indicatorsResponse = $this->callMospiApi('get_indicators', [
                 'dataset' => $datasetSource
             ]);
@@ -689,7 +690,46 @@ class ProcessSourceDataImportJob implements ShouldQueue
                             $stateId      = StateResolverService::getOrCreateStateId($rawStateName);
 
                             $additionalFilters = array_diff_key($record, array_flip($standardKeys));
+                            
+                           // Loop ke bahar static/array cache initialize karein (optional, par high performance ke liye best)
+                            static $subIndicatorCache = [];
 
+                            $subIndicatorText = $additionalFilters['sub_indicator'] ?? null;
+                            $subIndicatorId   = null;
+
+                            if (!empty($subIndicatorText)) {
+                                $cacheKey = $indicatorId . '_' . md5($subIndicatorText);
+
+                                if (isset($subIndicatorCache[$cacheKey])) {
+                                    // DB me query kiye bina cache se ID utha lega
+                                    $subIndicatorId = $subIndicatorCache[$cacheKey];
+                                } else {
+                                    $subIndicatorModel = SubIndicator::firstOrCreate(
+                                        [
+                                            'indicator_id' => $indicatorId,
+                                            'name'         => $subIndicatorText,
+                                        ],
+                                        [
+                                            'alias_name'   => null,
+                                            'sector'       => $additionalFilters['sector'] ?? null,
+                                            'survey'       => $additionalFilters['survey'] ?? null,
+                                        ]
+                                    );
+
+                                    $subIndicatorId = $subIndicatorModel->id;
+                                    $subIndicatorCache[$cacheKey] = $subIndicatorId;
+                                }
+                            }
+
+                            Log::info("SubIndicator Linked -> ID: {$subIndicatorId} | Indicator ID: {$indicatorId}");
+
+                            if (!empty($additionalFilters)) {
+                                Log::info("[Sub-Indicator Debug] Indicator Code: {$indicatorCode} | Indicator ID: {$indicatorId}", [
+                                    'dataset'            => $datasetSource,
+                                    'sub_indicator_keys' => array_keys($additionalFilters),
+                                    'additional_filters' => $additionalFilters
+                                ]);
+                            }
                             $batchBuffer[] = [
                                 'data' => [
                                     'data_source_id'     => $dataSourceId,
@@ -707,6 +747,7 @@ class ProcessSourceDataImportJob implements ShouldQueue
                             if (count($batchBuffer) >= $batchSize) {
                                 $flushBatch();
                             }
+                            $indicatorInsertedRows++;
                         }
                     }
 

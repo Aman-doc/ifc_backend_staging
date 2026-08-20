@@ -89,12 +89,12 @@ class BigQueryService
             : "`{$datasetName}.{$tableName}`";
 
         // Accurate request tracking ke liye log context upar hi generate kar liya
-        $logContext = [
-            'params' => $params,
-            'resolved_table' => $fullTablePath,
-            'passed_dataset' => $datasetId,
-            'passed_table' => $tableId
-        ];
+        // $logContext = [
+        //     'params' => $params,
+        //     'resolved_table' => $fullTablePath,
+        //     'passed_dataset' => $datasetId,
+        //     'passed_table' => $tableId
+        // ];
 
         // Log::info('BigQuery: Fetching indicator data initiated.', $logContext);
 

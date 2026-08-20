@@ -17,6 +17,7 @@ use App\Http\Controllers\Admin\ChartTypeController;
 use App\Http\Controllers\Admin\ChartController;
 use App\Http\Controllers\MospiDebugController;
 use App\Http\Controllers\Admin\IndicatorController;
+use App\Http\Controllers\Admin\SubindicatorController;
 
 // mosapi check
 use Illuminate\Support\Facades\Http;
@@ -101,7 +102,11 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::delete('/sources/{id}', [SourceController::class, 'destroy'])->name('sources.destroy');
 
     
-    
+    // sub indicator 
+    Route::get('sub-indicators', [SubindicatorController::class, 'index'])->name('sub-indicators.index');
+    Route::put('sub-indicators/{id}', [SubindicatorController::class, 'update'])->name('sub-indicators.update');
+  
+  
     // Indicator Data Routes
     Route::get('/indicator-data', [IndicatorDataValueController::class, 'index'])->name('indicator_data.index');
     Route::post('/indicator-data/import', [IndicatorDataValueController::class, 'import'])->name('indicator_data.import');

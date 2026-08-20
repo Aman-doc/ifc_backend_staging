@@ -27,7 +27,7 @@
                             class="w-full bg-gray-50 border border-gray-200 text-gray-800 text-sm rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 p-2.5 transition-all">
                         <option value="">-- All Themes --</option>
                         @foreach($themes as $theme)
-                           <option value="{{ $theme->id }}" {{ request('theme_id') == $theme->id ? 'selected' : '' }}>
+                            <option value="{{ $theme->id }}" {{ request('theme_id') == $theme->id ? 'selected' : '' }}>
                                 {{ $theme->name }}
                             </option>
                         @endforeach
@@ -64,7 +64,7 @@
         @forelse($indicators as $indicator)
             <div class="bg-white rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden">
                 
-                <!-- TOP HEADER: Indicator Name & Source Name Full Width -->
+                <!-- TOP HEADER: Indicator Info, Source Text & Indicator Theme Order -->
                 <div class="bg-slate-50/80 p-5 border-b border-gray-200/80 flex flex-col md:flex-row md:items-start justify-between gap-4">
                     <div class="grow">
                         <div class="flex items-center gap-2 mb-1.5 flex-wrap">
@@ -88,37 +88,59 @@
                             {{ $indicator->name }}
                         </h2>
 
-                        <!-- DYNAMIC THEME-SPECIFIC SOURCE FIELD (ADDED BELOW INDICATOR NAME) -->
-                        <div class="mt-3 pt-2 border-t border-gray-200/50 max-w-xl">
+                        <!-- DYNAMIC THEME-SPECIFIC SOURCE FIELD & DISPLAY ORDER FIELD -->
+                        <div class="mt-4 pt-3 border-t border-gray-200/60 max-w-2xl">
                             @if(request('theme_id'))
                                 @php
                                     $selectedThemeId = request('theme_id');
-                                    // Current theme specific text fetch karein
-                                    $themeSourceText = isset($indicator->source[$selectedThemeId]) ? $indicator->source[$selectedThemeId] : '';
+                                    $themeData = $indicator->source[$selectedThemeId] ?? [];
+
+                                    // Extract Source Text & Display Order (Backward Compatible)
+                                    $sourceText = is_array($themeData) ? ($themeData['text'] ?? '') : $themeData;
+                                    $displayOrder = is_array($themeData) ? ($themeData['order'] ?? 0) : 0;
                                 @endphp
-                                <form action="{{ route('admin.indicators.update-source', $indicator->id) }}" method="POST" class="flex items-end gap-2">
+
+                                <form action="{{ route('admin.indicators.update-source', $indicator->id) }}" method="POST" class="flex items-end gap-3 flex-wrap sm:flex-nowrap">
                                     @csrf
                                     <input type="hidden" name="theme_id" value="{{ $selectedThemeId }}">
                                     
-                                    <div class="grow">
+                                    <!-- 1. Source Text Field -->
+                                    <div class="grow min-w-[240px]">
                                         <label class="block text-[11px] font-bold text-gray-500 uppercase mb-1">
                                             Source for Current Selected Theme
                                         </label>
                                         <input 
                                             type="text" 
                                             name="source_text" 
-                                            value="{{ $themeSourceText }}" 
+                                            value="{{ $sourceText }}" 
                                             placeholder="e.g. Census 2011, Ministry of Finance..." 
                                             class="w-full bg-white border border-gray-200 text-gray-800 text-xs rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 p-2 transition-all shadow-inner"
                                         >
                                     </div>
-                                    <button type="submit" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg transition-all shadow-sm shrink-0">
-                                        Save Source
+
+                                    <!-- 2. Display Order Field (PAAS ME ADD KIYA GAYA H) -->
+                                    <div class="w-24 shrink-0">
+                                        <label class="block text-[11px] font-bold text-gray-500 uppercase mb-1">
+                                            Theme Order
+                                        </label>
+                                        <input 
+                                            type="number" 
+                                            name="display_order" 
+                                            value="{{ $displayOrder }}" 
+                                            min="0" 
+                                            placeholder="0" 
+                                            class="w-full bg-white border border-gray-200 text-gray-800 text-xs text-center font-bold rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 p-2 transition-all shadow-inner"
+                                        >
+                                    </div>
+
+                                    <!-- Submit Button -->
+                                    <button type="submit" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg transition-all shadow-sm shrink-0">
+                                        Save Settings
                                     </button>
                                 </form>
                             @else
                                 <p class="text-[11px] text-amber-600 font-medium italic">
-                                    ⚠️ Select a theme above to add or update dynamic source information.
+                                    ⚠️ Select a theme above to add or update dynamic source information and theme order.
                                 </p>
                             @endif
                         </div>
@@ -136,7 +158,7 @@
                     </div>
                 </div>
 
-                <!-- BOTTOM BODY: Chart Cards Grid -->
+                <!-- BOTTOM BODY: Configured Chart Cards Grid -->
                 <div class="p-6">
                     <h3 class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-4 flex items-center gap-1.5">
                         <span>📊</span> Configured Charts ({{ $indicator->charts->count() }})
@@ -160,42 +182,29 @@
                                         </h4>
                                     </div>
 
+                                    <!-- Chart Actions Footer (Clean & Non-overlapping) -->
                                     <div class="pt-3 border-t border-gray-100 flex items-center justify-between">
                                         <span class="text-[11px] text-gray-400">ID: #{{ $chart->id }}</span>
                                         <div class="flex items-center gap-2">
 
-                                                                            <!-- WordPress Style Duplicate Button (New) -->
-                                        <form action="{{ route('admin.charts.duplicate', $chart->id) }}" method="POST">
-                                            @csrf
-                                            <button type="submit" title="Duplicate Chart"
-                                                    class="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200/80 rounded-lg text-xs font-semibold transition-colors">
-                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path>
-                                                </svg>
-                                                Duplicate
-                                            </button>
-                                        </form>
-
-                                        
+                                            <!-- Edit / Delete Buttons for Chart -->
                                             <a href="{{ route('admin.charts.edit', $chart->id) }}" 
-                                               class="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200/80 rounded-lg text-xs font-semibold transition-colors">
-                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                                                </svg>
+                                               class="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200/80 rounded-md text-xs font-semibold transition-colors">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
                                                 Edit
                                             </a>
-                                            <form action="{{ route('admin.charts.destroy', $chart->id) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this chart?');">
+                                            <form action="{{ route('admin.charts.destroy', $chart->id) }}" method="POST" onsubmit="return confirm('Are you sure?');">
                                                 @csrf
                                                 @method('DELETE')
-                                                <button type="submit" class="inline-flex items-center gap-1 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200/80 rounded-lg text-xs font-semibold transition-colors">
-                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                                                    </svg>
+                                                <button type="submit" class="inline-flex items-center gap-1 px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200/80 rounded-md text-xs font-semibold transition-colors">
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                                                     Delete
                                                 </button>
                                             </form>
+
                                         </div>
                                     </div>
+
                                 </div>
                             @endforeach
                         </div>
