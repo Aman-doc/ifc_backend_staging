@@ -144,7 +144,7 @@ public function update(Request $request, $id)
         $themeId = $request->theme_id;
 
         // Existing JSON array fetch karein
-        $currentData = $indicator->source ?? [];
+        $currentData = $indicator->source ?? []; 
 
         if (!is_array($currentData)) {
             $currentData = json_decode($currentData, true) ?? [];
