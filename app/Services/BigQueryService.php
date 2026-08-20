@@ -31,7 +31,7 @@ class BigQueryService
         $this->location = config('services.bigquery.location');
         $this->datasetName = config('services.bigquery.dataset');
         $this->tableName = config('services.bigquery.table');
-    }
+    } 
 
     /**
      * Lazy getter — BigQueryClient is created only when first needed.
