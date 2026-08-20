@@ -1277,89 +1277,89 @@ class ProcessSourceDataImportJob implements ShouldQueue
                 Log::info("No indicators found for {$datasetSource}.");
                 return;
             }
-            //    Log::info("indicator data",['indicators' => $indicators]);                     
-            foreach ($indicators as $indicator) {
-                $indicatorCode = $indicator['indicator_code'] ?? null;
-                $indicatorName = $indicator['description'];
-                if (!$indicatorCode) continue;
+               Log::info("indicator data",['indicators' => $indicators]);                     
+            // foreach ($indicators as $indicator) {
+            //     $indicatorCode = $indicator['indicator_code'] ?? null;
+            //     $indicatorName = $indicator['description'];
+            //     if (!$indicatorCode) continue;
 
-                // Default to main data source ID
-                $currentDataSourceId = $dataSourceId;
-                  if (!$indicatorCode) continue;
+            //     // Default to main data source ID
+            //     $currentDataSourceId = $dataSourceId;
+            //       if (!$indicatorCode) continue;
 
-                 $indicatorModel = Indicator::updateOrCreate(
-                    [
-                        'data_source_id' => $currentDataSourceId,
-                        'indicator_code' => (string) $indicatorCode,
-                    ],
-                    [
-                        'name'      => $indicatorName,
-                        'is_synced' => false,
-                    ]
-                );
+            //      $indicatorModel = Indicator::updateOrCreate(
+            //         [
+            //             'data_source_id' => $currentDataSourceId,
+            //             'indicator_code' => (string) $indicatorCode,
+            //         ],
+            //         [
+            //             'name'      => $indicatorName,
+            //             'is_synced' => false,
+            //         ]
+            //     );
 
-                Log::info("Saved Indicator into MySQL DB -> ID: {$indicatorModel->id} | Code: {$indicatorCode} | DataSource ID: {$dataSourceId}");
+            //     Log::info("Saved Indicator into MySQL DB -> ID: {$indicatorModel->id} | Code: {$indicatorCode} | DataSource ID: {$dataSourceId}");
 
                    
-                $page = 1;
-                $indicatorInsertedRows = 0; // Track per-indicator rows for clear logging
+            //     $page = 1;
+            //     $indicatorInsertedRows = 0; // Track per-indicator rows for clear logging
 
-                // do {
-                //     $datasetResponse = $this->callMospiApi('get_data', [
-                //         'dataset' => $datasetSource,
-                //         'filters' => [
-                //             'page'           => (string) $page,
-                //             'indicator_code' => $indicatorCode,
-                //         ]
-                //     ]);
+            //     // do {
+            //     //     $datasetResponse = $this->callMospiApi('get_data', [
+            //     //         'dataset' => $datasetSource,
+            //     //         'filters' => [
+            //     //             'page'           => (string) $page,
+            //     //             'indicator_code' => $indicatorCode,
+            //     //         ]
+            //     //     ]);
 
-                //     if (!$datasetResponse || !empty($datasetResponse['result']['isError'])) {
-                //         Log::warning("API call failed or returned empty for indicator: {$indicatorCode} at page {$page}");
-                //         break;
-                //     }
+            //     //     if (!$datasetResponse || !empty($datasetResponse['result']['isError'])) {
+            //     //         Log::warning("API call failed or returned empty for indicator: {$indicatorCode} at page {$page}");
+            //     //         break;
+            //     //     }
 
-                //     $structuredContent = $datasetResponse['result']['structuredContent'] ?? [];
-                //     $records  = $structuredContent['data'] ?? [];
-                //     $metaData = $structuredContent['meta_data'] ?? [];
+            //     //     $structuredContent = $datasetResponse['result']['structuredContent'] ?? [];
+            //     //     $records  = $structuredContent['data'] ?? [];
+            //     //     $metaData = $structuredContent['meta_data'] ?? [];
 
-                //     if (!empty($records)) {
-                //         foreach ($records as $record) {
-                //             $rawStateName = (string) ($record['state'] ?? $record['state_ut'] ?? '');
-                //             $stateId      = StateResolverService::getOrCreateStateId($rawStateName);
+            //     //     if (!empty($records)) {
+            //     //         foreach ($records as $record) {
+            //     //             $rawStateName = (string) ($record['state'] ?? $record['state_ut'] ?? '');
+            //     //             $stateId      = StateResolverService::getOrCreateStateId($rawStateName);
 
-                //             $additionalFilters = array_diff_key($record, array_flip($standardKeys));
+            //     //             $additionalFilters = array_diff_key($record, array_flip($standardKeys));
 
-                //             $batchBuffer[] = [
-                //                 'data' => [
-                //                     'data_source_id'     => $currentDataSourceId,
-                //                     'indicator_id'       => $indicatorCode,
-                //                     'state_id'           => $stateId,
-                //                     'year'               => (string) ($record['year'] ?? $record['time_period'] ?? ''),
-                //                     'value'              => is_numeric($record['value'] ?? null) ? (float) $record['value'] : null,
-                //                     'additional_filters' => !empty($additionalFilters) ? json_encode($additionalFilters) : null,
-                //                     'created_at'         => date('Y-m-d H:i:s'),
-                //                 ]
-                //             ];
+            //     //             $batchBuffer[] = [
+            //     //                 'data' => [
+            //     //                     'data_source_id'     => $currentDataSourceId,
+            //     //                     'indicator_id'       => $indicatorCode,
+            //     //                     'state_id'           => $stateId,
+            //     //                     'year'               => (string) ($record['year'] ?? $record['time_period'] ?? ''),
+            //     //                     'value'              => is_numeric($record['value'] ?? null) ? (float) $record['value'] : null,
+            //     //                     'additional_filters' => !empty($additionalFilters) ? json_encode($additionalFilters) : null,
+            //     //                     'created_at'         => date('Y-m-d H:i:s'),
+            //     //                 ]
+            //     //             ];
 
-                //             $indicatorInsertedRows++;
+            //     //             $indicatorInsertedRows++;
 
-                //             // Flush when buffer reaches 500
-                //             if (count($batchBuffer) >= $batchSize) {
-                //                 $flushBatch();
-                //             }
-                //         }
-                //     }
+            //     //             // Flush when buffer reaches 500
+            //     //             if (count($batchBuffer) >= $batchSize) {
+            //     //                 $flushBatch();
+            //     //             }
+            //     //         }
+            //     //     }
 
-                //     $totalPages = $metaData['totalPages'] ?? 1;
-                //     $page++;
-                // } while ($page <= $totalPages);
+            //     //     $totalPages = $metaData['totalPages'] ?? 1;
+            //     //     $page++;
+            //     // } while ($page <= $totalPages);
 
-                // $flushBatch();
+            //     // $flushBatch();
 
-                // $savedIndicatorsCount++;
+            //     // $savedIndicatorsCount++;
 
-                // Log::info("Progress update: Processed indicator {$savedIndicatorsCount}/" . count($indicators) . " ({$indicatorCode}). Added {$indicatorInsertedRows} rows. Total BigQuery rows so far: {$totalSavedRecords}");
-            }
+            //     // Log::info("Progress update: Processed indicator {$savedIndicatorsCount}/" . count($indicators) . " ({$indicatorCode}). Added {$indicatorInsertedRows} rows. Total BigQuery rows so far: {$totalSavedRecords}");
+            // }
         }
         // working 
         else if ($datasetSource === "UDISE") {
@@ -1655,6 +1655,155 @@ class ProcessSourceDataImportJob implements ShouldQueue
         }
 
         // 
+        // else if ($datasetSource === "ASI") {
+        //     $indicatorsResponse = $this->callMospiApi('get_indicators', [
+        //         'dataset' => $datasetSource
+        //     ]);
+
+        //     if (!$indicatorsResponse || !empty($indicatorsResponse['result']['isError'])) {
+        //         Log::error("Failed to fetch indicators for dataset {$datasetSource}");
+        //         return;
+        //     }
+
+        //     $rawContent  = $indicatorsResponse['result']['content'][0]['text'] ?? '{}';
+        //     $decodedData = json_decode($rawContent, true);
+        //     $indicators = $decodedData['indicators'] ?? [];
+
+        //     if (empty($indicators)) { 
+        //         Log::info("No indicators found for {$datasetSource}.");
+        //         return;
+        //     }
+
+        //     $metaDataResponse = $this->callMospiApi('get_metadata', [
+        //         'dataset' => $datasetSource
+        //     ]);
+        //     $metaRawContent  = $metaDataResponse['result']['content'][0]['text'] ?? '{}';
+        //     $metaDecodedData = json_decode($metaRawContent, true);
+
+        //     $classificationYears = [];
+        //     $nicTypes = [];
+        //     $sectorCodes = [];
+
+        //     foreach (($metaDecodedData['api_params'] ?? []) as $params) {
+        //         if ($params['name'] === 'classification_year') {
+        //             $classificationYears = $params['schema']['enum'] ?? [];
+        //         } else if ($params['name'] === 'sector_code') {
+        //             $sectorCodes = $params['schema']['enum'] ?? [];
+        //         } else if ($params['name'] === 'nic_type') {
+        //             $nicTypes = $params['schema']['enum'] ?? [];
+        //         }
+        //     }
+
+        //     if (empty($classificationYears) || empty($nicTypes) || empty($sectorCodes)) {
+        //         Log::warning("Missing metadata filters (Years, NIC, or Sectors) for {$datasetSource}.");
+        //     }
+
+        //     $savedIndicatorsCount = 0;
+        //     $totalSavedRecords = 0;
+
+        //     foreach ($indicators as $indicator) {
+        //         $indicatorCode = $indicator['indicator_code'] ?? null;
+        //         $indicatorName = $indicator['indicator_name'] ?? null;
+                
+        //         if (!$indicatorCode) continue;
+
+        //         $currentDataSourceId = $dataSourceId;
+
+        //         // STEP 2: Save to MySQL Indicators Table
+        //         $indicatorModel = Indicator::updateOrCreate(
+        //             [
+        //                 'data_source_id' => $currentDataSourceId,
+        //                 'indicator_code' => (string) $indicatorCode,
+        //             ],
+        //             [
+        //                 'name'      => $indicatorName,
+        //                 'is_synced' => false,
+        //             ]
+        //         );
+
+        //         Log::info("Saved Indicator into MySQL -> ID: {$indicatorModel->id} | Code: {$indicatorCode}");
+
+        //         $indicatorInsertedRows = 0; 
+
+        //         // foreach ($classificationYears as $classification_year) {
+        //         //     foreach ($sectorCodes as $sector_code) {
+        //         //         foreach ($nicTypes as $nic_type) {
+                            
+        //         //             // FIX 1: $page ko yahan 1 par reset karna zaroori hai har filter combination ke liye
+        //         //             $page = 1; 
+
+        //         //             do {
+        //         //                 $datasetResponse = $this->callMospiApi('get_data', [
+        //         //                     'dataset' => $datasetSource,
+        //         //                     'filters' => [
+        //         //                         'page'                => (string) $page,
+        //         //                         'indicator_code'      => $indicatorCode,
+        //         //                         'classification_year' => $classification_year,
+        //         //                         'sector_code'         => $sector_code,
+        //         //                         'nic_type'            => $nic_type,
+        //         //                     ]
+        //         //                 ]);
+
+        //         //                 if (!$datasetResponse || !empty($datasetResponse['result']['isError'])) {
+        //         //                     Log::warning("API call failed for indicator: {$indicatorCode} at page {$page}");
+        //         //                     break;
+        //         //                 }
+
+        //         //                 $structuredContent = $datasetResponse['result']['structuredContent'] ?? [];
+        //         //                 $records  = $structuredContent['data'] ?? [];
+        //         //                 $metaData = $structuredContent['meta_data'] ?? [];
+
+        //         //                 if (!empty($records)) {
+        //         //                     foreach ($records as $record) {
+        //         //                         $rawStateName = (string) ($record['state'] ?? $record['state_ut'] ?? '');
+        //         //                         $stateId      = StateResolverService::getOrCreateStateId($rawStateName);
+                                        
+        //         //                         // Standard keys ko hata kar bache hue filters alag nikalna
+        //         //                         $standardKeys = ['state', 'state_ut', 'year', 'time_period', 'value'];
+        //         //                         $additionalFilters = array_diff_key($record, array_flip($standardKeys));
+
+        //         //                         // FIX 2: Comment hatakar buffer array me data push karein
+        //         //                     $batchBuffer[] = [
+        //         //                                         'data' => [ // <--- Yeh key BigQuery ke liye MANDATORY hai
+        //         //                                             'data_source_id'     => $currentDataSourceId,
+        //         //                                             'indicator_id'       => $indicatorModel->id, 
+        //         //                                             'state_id'           => $stateId,
+        //         //                                             'year'               => (string) ($record['year'] ?? $record['time_period'] ?? ''),
+        //         //                                             'value'              => is_numeric($record['value'] ?? null) ? (float) $record['value'] : null,
+        //         //                                             'additional_filters' => !empty($additionalFilters) ? json_encode($additionalFilters) : null,
+        //         //                                             'created_at'         => date('Y-m-d H:i:s'),
+        //         //                                         ]
+        //         //                                     ];
+
+        //         //                         $indicatorInsertedRows++;
+        //         //                         $totalSavedRecords++;
+
+        //         //                         // Agar batch buffer size limit (jaise 500) tak pahunche toh BigQuery me flush karein
+        //         //                         if (count($batchBuffer) >= $batchSize) {
+        //         //                             $flushBatch(); // Make sure this closure/method is defined in your class
+        //         //                         }
+        //         //                     }
+        //         //                 }
+
+        //         //                 $totalPages = $metaData['totalPages'] ?? 1;
+        //         //                 $page++;
+                                
+        //         //             } while ($page <= $totalPages); // FIX 3: Apni scaling requirements ke mutabik condition adjust karein
+        //         //         }
+        //         //     }
+        //         // }
+
+        //         // // Remaining buffer rows ko flush karein loop khatam hone par
+        //         // if (!empty($batchBuffer)) {
+        //         //     $flushBatch(); 
+        //         // }
+
+        //         // $savedIndicatorsCount++;
+        //         // Log::info("Progress: Processed indicator {$savedIndicatorsCount}/" . count($indicators) . " ({$indicatorCode}). Added {$indicatorInsertedRows} rows.");
+                
+        //         // FIX 4: Sabhi indicators ko chalane ke liye end me laga hua 'break;' hata diya gaya hai.
+        //     }
+        // }
         else if ($datasetSource === "ASI") {
             $indicatorsResponse = $this->callMospiApi('get_indicators', [
                 'dataset' => $datasetSource
@@ -1667,7 +1816,9 @@ class ProcessSourceDataImportJob implements ShouldQueue
 
             $rawContent  = $indicatorsResponse['result']['content'][0]['text'] ?? '{}';
             $decodedData = json_decode($rawContent, true);
+            
             $indicators = $decodedData['indicators'] ?? [];
+            
 
             if (empty($indicators)) { 
                 Log::info("No indicators found for {$datasetSource}.");
@@ -1679,7 +1830,7 @@ class ProcessSourceDataImportJob implements ShouldQueue
             ]);
             $metaRawContent  = $metaDataResponse['result']['content'][0]['text'] ?? '{}';
             $metaDecodedData = json_decode($metaRawContent, true);
-
+           
             $classificationYears = [];
             $nicTypes = [];
             $sectorCodes = [];
@@ -1721,87 +1872,43 @@ class ProcessSourceDataImportJob implements ShouldQueue
                     ]
                 );
 
-                Log::info("Saved Indicator into MySQL -> ID: {$indicatorModel->id} | Code: {$indicatorCode}");
+                Log::info("Saved Indicator into MySQLs -> ID: {$indicatorModel->id} | Code: {$indicatorCode}");
 
-                $indicatorInsertedRows = 0; 
-
-                // foreach ($classificationYears as $classification_year) {
-                //     foreach ($sectorCodes as $sector_code) {
-                //         foreach ($nicTypes as $nic_type) {
+                foreach ($classificationYears as $classification_year) {
+                    foreach ($sectorCodes as $sector_code) {
+                        foreach ($nicTypes as $nic_type) {
                             
-                //             // FIX 1: $page ko yahan 1 par reset karna zaroori hai har filter combination ke liye
-                //             $page = 1; 
+                            // 1. Create Tracker Record in MySQL
+                            $trackerId = \Illuminate\Support\Facades\DB::table('dataset_import_trackers')->insertGetId([
+                                'data_source_id'      => $currentDataSourceId,
+                                'indicator_code'      => $indicatorCode,
+                                'classification_year' => $classification_year,
+                                'sector_code'         => $sector_code,
+                                'nic_type'            => $nic_type,
+                                'status'              => 'pending',
+                                'fetched_rows'        => 0,
+                                'created_at'          => now(),
+                                'updated_at'          => now(),
+                            ]);
 
-                //             do {
-                //                 $datasetResponse = $this->callMospiApi('get_data', [
-                //                     'dataset' => $datasetSource,
-                //                     'filters' => [
-                //                         'page'                => (string) $page,
-                //                         'indicator_code'      => $indicatorCode,
-                //                         'classification_year' => $classification_year,
-                //                         'sector_code'         => $sector_code,
-                //                         'nic_type'            => $nic_type,
-                //                     ]
-                //                 ]);
+                            // 2. Dispatch Micro-Job for this specific combination
+                            \App\Jobs\FetchAsiCombinationJob::dispatch(
+                                $trackerId,
+                                $currentDataSourceId,
+                                $datasetSource,
+                                $indicatorCode,
+                                $classification_year,
+                                $sector_code,
+                                $nic_type
+                            );
+                        }
+                    }
+                }
 
-                //                 if (!$datasetResponse || !empty($datasetResponse['result']['isError'])) {
-                //                     Log::warning("API call failed for indicator: {$indicatorCode} at page {$page}");
-                //                     break;
-                //                 }
+                Log::info("Dispatched all ASI Micro-Jobs for Indicator Code: {$indicatorCode}");
 
-                //                 $structuredContent = $datasetResponse['result']['structuredContent'] ?? [];
-                //                 $records  = $structuredContent['data'] ?? [];
-                //                 $metaData = $structuredContent['meta_data'] ?? [];
-
-                //                 if (!empty($records)) {
-                //                     foreach ($records as $record) {
-                //                         $rawStateName = (string) ($record['state'] ?? $record['state_ut'] ?? '');
-                //                         $stateId      = StateResolverService::getOrCreateStateId($rawStateName);
-                                        
-                //                         // Standard keys ko hata kar bache hue filters alag nikalna
-                //                         $standardKeys = ['state', 'state_ut', 'year', 'time_period', 'value'];
-                //                         $additionalFilters = array_diff_key($record, array_flip($standardKeys));
-
-                //                         // FIX 2: Comment hatakar buffer array me data push karein
-                //                     $batchBuffer[] = [
-                //                                         'data' => [ // <--- Yeh key BigQuery ke liye MANDATORY hai
-                //                                             'data_source_id'     => $currentDataSourceId,
-                //                                             'indicator_id'       => $indicatorModel->id, 
-                //                                             'state_id'           => $stateId,
-                //                                             'year'               => (string) ($record['year'] ?? $record['time_period'] ?? ''),
-                //                                             'value'              => is_numeric($record['value'] ?? null) ? (float) $record['value'] : null,
-                //                                             'additional_filters' => !empty($additionalFilters) ? json_encode($additionalFilters) : null,
-                //                                             'created_at'         => date('Y-m-d H:i:s'),
-                //                                         ]
-                //                                     ];
-
-                //                         $indicatorInsertedRows++;
-                //                         $totalSavedRecords++;
-
-                //                         // Agar batch buffer size limit (jaise 500) tak pahunche toh BigQuery me flush karein
-                //                         if (count($batchBuffer) >= $batchSize) {
-                //                             $flushBatch(); // Make sure this closure/method is defined in your class
-                //                         }
-                //                     }
-                //                 }
-
-                //                 $totalPages = $metaData['totalPages'] ?? 1;
-                //                 $page++;
-                                
-                //             } while ($page <= $totalPages); // FIX 3: Apni scaling requirements ke mutabik condition adjust karein
-                //         }
-                //     }
-                // }
-
-                // // Remaining buffer rows ko flush karein loop khatam hone par
-                // if (!empty($batchBuffer)) {
-                //     $flushBatch(); 
-                // }
-
-                // $savedIndicatorsCount++;
-                // Log::info("Progress: Processed indicator {$savedIndicatorsCount}/" . count($indicators) . " ({$indicatorCode}). Added {$indicatorInsertedRows} rows.");
-                
-                // FIX 4: Sabhi indicators ko chalane ke liye end me laga hua 'break;' hata diya gaya hai.
+                $savedIndicatorsCount++;
+                Log::info("Progress: Dispatched jobs for indicator {$savedIndicatorsCount}/" . count($indicators) . " ({$indicatorCode}).");
             }
         }
 
