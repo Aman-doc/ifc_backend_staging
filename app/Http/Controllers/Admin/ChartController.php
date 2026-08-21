@@ -162,7 +162,7 @@ class ChartController extends Controller
 
         return view('admin.charts.create', compact('indicator', 'chartTypes', 'bqFilters'));
     }
-
+ 
     public function store(Request $request)
     {
         // 1. Validation (Added 'source' rule)
@@ -234,7 +234,7 @@ class ChartController extends Controller
             }
 
             // CHECK: Indicator Type field verification
-            $isIndicatorField = isset($fieldValue['indicator_key']) || isset($fieldValue['key']) || isset($fieldValue['values']) || isset($fieldValue['filter']);
+            $isIndicatorField = isset($fieldValue['indicator_key']) || isset($fieldValue['key']) || isset($fieldValue['values']) || isset($fieldValue['filter']) || isset($fieldValue['hide']);
 
             if (!$isIndicatorField) {
                 $cleanedConfig[$fieldKey] = $fieldValue;
@@ -252,8 +252,9 @@ class ChartController extends Controller
             $cleanedField['values'] = array_values($selectedValues);
 
             $cleanedField['default_first_value'] = isset($fieldValue['default_first_value']) && $fieldValue['default_first_value'] == '1';
-            $cleanedField['filter']              = isset($fieldValue['filter']) && $fieldValue['filter'] == '1';
-            $cleanedField['multiple_select']     = isset($fieldValue['multiple_select']) && $fieldValue['multiple_select'] == '1';
+            $cleanedField['filter'] = isset($fieldValue['filter']) && $fieldValue['filter'] == '1';
+            $cleanedField['multiple_select'] = isset($fieldValue['multiple_select']) && $fieldValue['multiple_select'] == '1';
+            $cleanedField['hide'] = isset($fieldValue['hide']) && $fieldValue['hide'] == '1'; // ADDED: Hide Flag
 
             // FIXED: Space matching resolution for color array saving
             if (isset($fieldValue['colors']) && is_array($fieldValue['colors'])) {

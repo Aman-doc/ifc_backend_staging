@@ -180,6 +180,10 @@
                                     <input type="checkbox" name="config[${key}][multiple_select]" value="1" checked class="rounded text-purple-600 focus:ring-purple-500">
                                     Multiple
                                 </label>
+                                <label class="inline-flex items-center gap-1.5 cursor-pointer text-rose-600">
+                                    <input type="checkbox" name="config[${key}][hide]" value="1" class="rounded text-rose-600 focus:ring-rose-500">
+                                    Hide
+                                </label>
                             </div>
                         </div>
                         <div id="hidden_inputs_store_${key}"></div>

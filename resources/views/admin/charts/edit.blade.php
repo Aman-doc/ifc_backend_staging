@@ -211,6 +211,7 @@
                 const savedDefaultFirst = savedFieldData ? (savedFieldData.default_first_value == '1' || savedFieldData.default_first_value === true) : false;
                 const savedFilter       = savedFieldData ? (savedFieldData.filter == '1' || savedFieldData.filter === true) : false;
                 const savedMultiple     = savedFieldData ? (savedFieldData.multiple_select == '1' || savedFieldData.multiple_select === true) : false;
+                const savedHide         = savedFieldData ? (savedFieldData.hide == '1' || savedFieldData.hide === true) : false;
 
                 let keyOptionsHtml = '<option value="">Select Option...</option>';
                 bqFilterKeys.forEach(k => {
@@ -248,6 +249,13 @@
                                 <label class="inline-flex items-center gap-1 cursor-pointer text-purple-600">
                                     <input type="checkbox" name="config[${key}][multiple_select]" value="1" ${savedMultiple ? 'checked' : ''} class="rounded text-purple-600 focus:ring-purple-500">
                                     Multiple
+                                </label>
+                                <span class="text-gray-300">|</span>
+
+                                <!-- ADDED: Hide Checkbox -->
+                                <label class="inline-flex items-center gap-1 cursor-pointer text-rose-600">
+                                    <input type="checkbox" name="config[${key}][hide]" value="1" ${savedHide ? 'checked' : ''} class="rounded text-rose-600 focus:ring-rose-500">
+                                    Hide
                                 </label>
                             </div>
                         </div>
