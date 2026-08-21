@@ -313,14 +313,22 @@ class ThemeController extends Controller
 
         $executionTime = round((microtime(true) - $startTime) * 1000, 2);
 
-        $subIndicators = SubIndicator::where('indicator_id', $indicatorId)
-                        ->whereNotNull('alias_name')
-                        ->where('alias_name', '!=', '')
-                        ->get(['id', 'indicator_id', 'name', 'alias_name']);
+       $subIndicators = SubIndicator::where('indicator_id', $indicatorId)
+            ->whereNotNull('alias_name')
+            ->where('alias_name', '!=', '')
+            ->pluck('alias_name', 'name');
+
+
+        $data_alice = [
+            'sub_indicator' => $subIndicators,
+            ];
+        
+
         // 5. Response Builder
         $response = [
             'data' => $dataList,
-            'subIndicators' => $subIndicators,
+            'dataset_alias'=> $data_alice
+            
         ];
 
         // Agar pagination query me bheja tha tabhi pagination block include karein
