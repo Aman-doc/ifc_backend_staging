@@ -121,6 +121,7 @@ class ThemeController extends Controller
                     'isFilter' => filter_var($config['isFilter'] ?? $config['filter'] ?? $config['is_chart_filter'] ?? false, FILTER_VALIDATE_BOOLEAN),
                     'isMultiple' => filter_var($config['isMultiple'] ?? $config['multiple_select'] ?? $config['is_multiple'] ?? false, FILTER_VALIDATE_BOOLEAN),
                     'isDefaultSelected' => filter_var($config['isDefaultSelected'] ?? $config['default_first_value'] ?? $config['is_default_selected'] ?? false, FILTER_VALIDATE_BOOLEAN),
+                    'isHide'            => filter_var($config['isHide'] ?? $config['hide'] ?? $config['is_hide'] ?? false, FILTER_VALIDATE_BOOLEAN),
                     'values' => $formattedValues
                 ];
             }
