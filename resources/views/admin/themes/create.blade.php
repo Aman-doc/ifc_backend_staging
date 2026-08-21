@@ -48,11 +48,23 @@
             </label>
 
             <div class="space-y-4">
-                @foreach($dataSources as $ds)
+                 @foreach($dataSources as $index => $ds)
                     @php
                         $oldDataSources = old('data_source_ids', []);
                         $isDsChecked = in_array((string)$ds->id, array_map('strval', $oldDataSources));
+                           $oldOrders = old('orders', []);
+                        $orderValue = $oldOrders[$ds->id] ?? ($index + 1);
                     @endphp
+                          <div class="flex items-center gap-3">
+                                {{-- Order Input Field --}}
+                                <span class="text-[11px] font-mono text-gray-400 bg-gray-200 px-2 py-0.5 rounded">ID: {{ $ds->dataset_id }}</span>
+                                <div class="flex items-center gap-1.5">
+                                    <span class="text-xs text-gray-500 font-medium">Order:</span>
+                                    <input type="number" min="1" name="orders[{{ $ds->id }}]" value="{{ $orderValue }}" 
+                                           class="w-16 px-2 py-1 text-xs text-center border border-gray-300 rounded-md focus:ring-1 focus:ring-green-500 outline-none">
+                                </div>
+
+                            </div>
                     <div class="border border-gray-200 rounded-xl overflow-hidden bg-white">
                         {{-- Data Source Checkbox --}}
                         <div class="bg-gray-50 p-3.5 border-b border-gray-200 flex items-center justify-between">
@@ -65,7 +77,6 @@
                                     {{ $ds->title ?? $ds->dataset_id }}
                                 </span>
                             </label>
-                            <span class="text-[11px] font-mono text-gray-400 bg-gray-200 px-2 py-0.5 rounded">ID: {{ $ds->dataset_id }}</span>
                         </div>
 
                         {{-- Indicators Checkboxes --}}

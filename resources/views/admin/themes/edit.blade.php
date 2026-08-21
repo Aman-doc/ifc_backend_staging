@@ -42,69 +42,85 @@
                       class="w-full px-4 py-2.5 text-sm rounded-xl border border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all">{{ old('description', $theme->description) }}</textarea>
         </div>
 
-        @php
+       @php
             $savedDataSources = old('data_source_ids', $theme->data_source_ids ?? []);
             if (!is_array($savedDataSources)) { $savedDataSources = []; }
+            $savedDataSources = array_values(array_map('strval', $savedDataSources));
 
             $savedIndicators = old('indicators', $theme->indicator_ids ?? []);
             if (!is_array($savedIndicators)) { $savedIndicators = []; }
+
+            $oldOrders = old('orders', null);
         @endphp
 
-        {{-- Data Sources & Nested Indicators --}}
-        <div class="mb-6">
-            <label class="block text-xs font-semibold text-gray-700 uppercase mb-3">
-                Select Data Sources & Indicators <span class="text-red-500">*</span>
-            </label>
+        <div class="space-y-4">
+            @foreach($dataSources as $ds)
+                @php
+                    $dsIdStr = (string)$ds->id;
+                    $isDsChecked = in_array($dsIdStr, $savedDataSources);
+                    
+                    // Selected item ka sequential order (1, 2, 3...)
+                    $orderIndex = array_search($dsIdStr, $savedDataSources);
+                    $defaultOrder = ($orderIndex !== false) ? ($orderIndex + 1) : '';
 
-            <div class="space-y-4">
-                @foreach($dataSources as $ds)
-                    @php
-                        $isDsChecked = in_array((string)$ds->id, array_map('strval', $savedDataSources));
-                        $dsIndicators = $savedIndicators[$ds->id] ?? $savedIndicators[(string)$ds->id] ?? [];
-                        if (!is_array($dsIndicators)) { $dsIndicators = []; }
-                    @endphp
-                    <div class="border border-gray-200 rounded-xl overflow-hidden bg-white">
-                        {{-- Data Source Checkbox --}}
-                        <div class="bg-gray-50 p-3.5 border-b border-gray-200 flex items-center justify-between">
-                            <label class="flex items-center gap-3 cursor-pointer select-none">
-                                <input type="checkbox" name="data_source_ids[]" value="{{ $ds->id }}" 
-                                       onchange="toggleIndicators({{ $ds->id }}, this.checked)"
-                                       class="rounded border-gray-300 text-green-600 focus:ring-green-500 w-4 h-4"
-                                       {{ $isDsChecked ? 'checked' : '' }}>
-                                <span class="text-sm font-bold text-gray-800">
-                                    {{ $ds->title ?? $ds->dataset_id }}
-                                </span>
-                            </label>
+                    // Priority: old input > DB/calculated order
+                    if (is_array($oldOrders) && array_key_exists($ds->id, $oldOrders)) {
+                        $orderValue = $oldOrders[$ds->id];
+                    } else {
+                        $orderValue = $defaultOrder;
+                    }
+
+                    $dsIndicators = $savedIndicators[$ds->id] ?? $savedIndicators[$dsIdStr] ?? [];
+                    if (!is_array($dsIndicators)) { $dsIndicators = []; }
+                @endphp
+
+                <div class="border border-gray-200 rounded-xl overflow-hidden bg-white">
+                    <div class="bg-gray-50 p-3.5 border-b border-gray-200 flex items-center justify-between">
+                        <label class="flex items-center gap-3 cursor-pointer select-none">
+                            <input type="checkbox" name="data_source_ids[]" value="{{ $ds->id }}" 
+                                onchange="toggleIndicators({{ $ds->id }}, this.checked)"
+                                class="rounded border-gray-300 text-green-600 focus:ring-green-500 w-4 h-4"
+                                {{ $isDsChecked ? 'checked' : '' }}>
+                            <span class="text-sm font-bold text-gray-800">
+                                {{ $ds->title ?? $ds->dataset_id }}
+                            </span>
+                        </label>
+
+                        <div class="flex items-center gap-3">
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-xs text-gray-500 font-medium">Order:</span>
+                                <input type="number" min="1" name="orders[{{ $ds->id }}]" value="{{ $orderValue }}" placeholder="--"
+                                    class="w-16 px-2 py-1 text-xs text-center border border-gray-300 rounded-md focus:ring-1 focus:ring-green-500 outline-none">
+                            </div>
                             <span class="text-[11px] font-mono text-gray-400 bg-gray-200 px-2 py-0.5 rounded">ID: {{ $ds->dataset_id }}</span>
                         </div>
+                    </div>
 
-                        {{-- Indicators Checkboxes --}}
-                        <div id="ds-indicators-{{ $ds->id }}" class="p-4 {{ $isDsChecked ? '' : 'hidden' }}">
-                            <p class="text-[11px] font-semibold text-gray-500 uppercase mb-2">Select Indicators for {{ $ds->title ?? $ds->dataset_id }}:</p>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                @forelse($ds->indicators as $ind)
-                                    @php
-                                        $isIndChecked = in_array((string)$ind->id, array_map('strval', $dsIndicators));
-                                    @endphp
-                                    <label class="flex items-center justify-between cursor-pointer text-xs text-gray-700 hover:bg-gray-50 p-2 border border-gray-100 rounded-lg transition-all">
-                                        <span class="flex items-center gap-2">
-                                            <input type="checkbox" name="indicators[{{ $ds->id }}][]" value="{{ $ind->id }}" 
-                                                   class="indicator-cb-{{ $ds->id }} rounded border-gray-300 text-green-600 focus:ring-green-500 w-3.5 h-3.5"
-                                                   {{ $isIndChecked ? 'checked' : '' }}>
-                                            <span>{{ $ind->name }}</span>
-                                        </span>
-                                        @if($ind->indicator_code)
-                                            <span class="text-[10px] text-gray-400 font-mono">({{ $ind->indicator_code }})</span>
-                                        @endif
-                                    </label>
-                                @empty
-                                    <p class="text-xs text-gray-400 italic col-span-2">No indicators available for this Data Source.</p>
-                                @endforelse
-                            </div>
+                    <div id="ds-indicators-{{ $ds->id }}" class="p-4 {{ $isDsChecked ? '' : 'hidden' }}">
+                        <p class="text-[11px] font-semibold text-gray-500 uppercase mb-2">Select Indicators for {{ $ds->title ?? $ds->dataset_id }}:</p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            @forelse($ds->indicators as $ind)
+                                @php
+                                    $isIndChecked = in_array((string)$ind->id, array_map('strval', $dsIndicators));
+                                @endphp
+                                <label class="flex items-center justify-between cursor-pointer text-xs text-gray-700 hover:bg-gray-50 p-2 border border-gray-100 rounded-lg transition-all">
+                                    <span class="flex items-center gap-2">
+                                        <input type="checkbox" name="indicators[{{ $ds->id }}][]" value="{{ $ind->id }}" 
+                                            class="indicator-cb-{{ $ds->id }} rounded border-gray-300 text-green-600 focus:ring-green-500 w-3.5 h-3.5"
+                                            {{ $isIndChecked ? 'checked' : '' }}>
+                                        <span>{{ $ind->name }}</span>
+                                    </span>
+                                    @if($ind->indicator_code)
+                                        <span class="text-[10px] text-gray-400 font-mono">({{ $ind->indicator_code }})</span>
+                                    @endif
+                                </label>
+                            @empty
+                                <p class="text-xs text-gray-400 italic col-span-2">No indicators available for this Data Source.</p>
+                            @endforelse
                         </div>
                     </div>
-                @endforeach
-            </div>
+                </div>
+            @endforeach
         </div>
 
         {{-- Actions --}}

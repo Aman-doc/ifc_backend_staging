@@ -25,27 +25,42 @@ class ThemeController extends Controller
     {
         $request->validate([
             'name'              => 'required|string|max:255',
-            'description'              => 'nullable|string',
+            'description'       => 'nullable|string',
             'data_source_ids'   => 'required|array|min:1',
             'data_source_ids.*' => 'exists:data_sources,id',
+            'orders'            => 'nullable|array',
             'indicators'        => 'nullable|array',
         ]);
 
-        // Nested JSON Mapping Structure: {"data_source_id": ["indicator_id_1", "indicator_id_2"]}
+        $selectedDsIds = $request->input('data_source_ids', []);
+        $orders = $request->input('orders', []);
+
+        // Selected Data Sources ko Sequence / Order ke mutabiq Sort karna
+        usort($selectedDsIds, function ($a, $b) use ($orders) {
+            $orderA = isset($orders[$a]) ? (int)$orders[$a] : 999;
+            $orderB = isset($orders[$b]) ? (int)$orders[$b] : 999;
+            return $orderA <=> $orderB;
+        });
+
+        // Formatted Data Source IDs String Array
+        $orderedDsIds = array_values(array_map('strval', $selectedDsIds));
+
+        // Nested Indicators Mapping Structure maintain karna
         $formattedIndicators = [];
 
-        if ($request->has('indicators') && $request->has('data_source_ids')) {
-            foreach ($request->data_source_ids as $dsId) {
+        if ($request->has('indicators')) {
+            foreach ($orderedDsIds as $dsId) {
                 if (isset($request->indicators[$dsId]) && is_array($request->indicators[$dsId])) {
-                    $formattedIndicators[(string)$dsId] = array_values(array_map('strval', $request->indicators[$dsId]));
+                    $formattedIndicators[$dsId] = array_values(array_map('strval', $request->indicators[$dsId]));
                 }
             }
         }
 
+        // dd($orderedDsIds);
         Theme::create([
             'name'            => $request->name,
             'description'     => $request->description,
-            'data_source_ids' => array_values(array_map('strval', $request->data_source_ids)),
+            'data_source_ids' => $orderedDsIds, // Custom Order ke sath JSON save hoga
             'indicator_ids'   => $formattedIndicators,
             'created_by'      => auth()->id() ?? null,
         ]);
@@ -66,28 +81,44 @@ class ThemeController extends Controller
 
         $request->validate([
             'name'              => 'required|string|max:255',
-            'description'              => 'nullable|string',
+            'description'       => 'nullable|string',
             'data_source_ids'   => 'required|array|min:1',
             'data_source_ids.*' => 'exists:data_sources,id',
+            'orders'            => 'nullable|array',
             'indicators'        => 'nullable|array',
         ]);
 
-        $formattedIndicators = [];
+        $selectedDsIds = $request->input('data_source_ids', []);
+        $orders = $request->input('orders', []);
 
-        if ($request->has('indicators') && $request->has('data_source_ids')) {
-            foreach ($request->data_source_ids as $dsId) {
+        // Order input values ke basis par numeric sorting
+        usort($selectedDsIds, function ($a, $b) use ($orders) {
+            $valA = (isset($orders[$a]) && $orders[$a] !== null && $orders[$a] !== '') ? (int)$orders[$a] : 9999;
+            $valB = (isset($orders[$b]) && $orders[$b] !== null && $orders[$b] !== '') ? (int)$orders[$b] : 9999;
+            return $valA <=> $valB;
+        });
+
+        // Fresh sequential re-indexing
+        $orderedDsIds = array_values(array_map('strval', $selectedDsIds));
+
+        $formattedIndicators = [];
+        if ($request->has('indicators')) {
+            foreach ($orderedDsIds as $dsId) {
                 if (isset($request->indicators[$dsId]) && is_array($request->indicators[$dsId])) {
                     $formattedIndicators[(string)$dsId] = array_values(array_map('strval', $request->indicators[$dsId]));
                 }
             }
         }
 
-        $theme->update([
+        // Explicit update call
+        $theme->fill([
             'name'            => $request->name,
             'description'     => $request->description,
-            'data_source_ids' => array_values(array_map('strval', $request->data_source_ids)),
+            'data_source_ids' => $orderedDsIds,
             'indicator_ids'   => $formattedIndicators,
         ]);
+
+        $theme->save();
 
         return redirect()->route('admin.themes.index')->with('success', 'Theme updated successfully.');
     }

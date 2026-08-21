@@ -32,6 +32,24 @@ class ProcessSourceDataImportJob implements ShouldQueue
 
     protected DataSource $dataSource;
 
+    protected function isTargetAsiYear($value): bool
+    {
+        $normalized = $this->normalizeTargetYearValue($value);
+        $normalized = preg_replace('/[\s_\-\/]+/', '', $normalized);
+
+        return $normalized === '202324';
+    }
+
+
+    protected function normalizeTargetYearValue($value): string
+    {
+        if ($value === null || $value === '') {
+            return '';
+        }
+
+        return strtolower(trim((string) $value));
+    }
+    
     /**
      * Create a new job instance.
      */
@@ -1804,7 +1822,7 @@ class ProcessSourceDataImportJob implements ShouldQueue
         //         // FIX 4: Sabhi indicators ko chalane ke liye end me laga hua 'break;' hata diya gaya hai.
         //     }
         // }
-        else if ($datasetSource === "ASI") {
+      else if ($datasetSource === "ASI") {
             $indicatorsResponse = $this->callMospiApi('get_indicators', [
                 'dataset' => $datasetSource
             ]);
@@ -1830,7 +1848,6 @@ class ProcessSourceDataImportJob implements ShouldQueue
             ]);
             $metaRawContent  = $metaDataResponse['result']['content'][0]['text'] ?? '{}';
             $metaDecodedData = json_decode($metaRawContent, true);
-           
             $classificationYears = [];
             $nicTypes = [];
             $sectorCodes = [];
@@ -1874,64 +1891,177 @@ class ProcessSourceDataImportJob implements ShouldQueue
 
                 Log::info("Saved Indicator into MySQLs -> ID: {$indicatorModel->id} | Code: {$indicatorCode}");
 
+                $indicatorInsertedRows = 0; 
+
+                $standardKeys = ['state', 'state_ut', 'year', 'time_period', 'value'];
+
                 foreach ($classificationYears as $classification_year) {
                     foreach ($sectorCodes as $sector_code) {
                         foreach ($nicTypes as $nic_type) {
-                            
-                            // 1. Create or Update Tracker Record in MySQL
-                            $trackerAttributes = [
+                            $combinationKey = [
                                 'data_source_id'      => $currentDataSourceId,
-                                'indicator_code'      => $indicatorCode,
+                                'indicator_code'      => (string) $indicatorCode,
                                 'classification_year' => $classification_year,
                                 'sector_code'         => $sector_code,
                                 'nic_type'            => $nic_type,
                             ];
-                            
-                            $existingTracker = \Illuminate\Support\Facades\DB::table('dataset_import_trackers')
-                                ->where($trackerAttributes)
-                                ->first();
+
+                            $existingTracker = \Illuminate\Support\Facades\DB::table('dataset_import_trackers')->where($combinationKey)->first();
+
+                            if ($existingTracker && $existingTracker->status === 'completed') {
+                                Log::info("Skipping ASI combination already completed: indicator_code={$indicatorCode} | classification_year={$classification_year} | sector_code={$sector_code} | nic_type={$nic_type}");
+                                continue;
+                            }
 
                             if ($existingTracker) {
-                                if ($existingTracker->status === 'completed') {
-                                    Log::info("Skipping ASI Micro-Job for Indicator Code: {$indicatorCode} | Year: {$classification_year} | Sector: {$sector_code} | NIC: {$nic_type} (Already Completed)");
-                                    continue; // Skip this combination, it's already fully imported
-                                }
-
-                                $trackerId = $existingTracker->id;
                                 \Illuminate\Support\Facades\DB::table('dataset_import_trackers')
-                                    ->where('id', $trackerId)
+                                    ->where('id', $existingTracker->id)
                                     ->update([
-                                        'status'       => 'pending',
-                                        'fetched_rows' => 0,
-                                        'updated_at'   => now(),
+                                        'status'     => 'processing',
+                                        'updated_at' => now(),
                                     ]);
                             } else {
-                                $trackerId = \Illuminate\Support\Facades\DB::table('dataset_import_trackers')->insertGetId(array_merge($trackerAttributes, [
-                                    'status'       => 'pending',
+                                $trackerId = \Illuminate\Support\Facades\DB::table('dataset_import_trackers')->insertGetId(array_merge($combinationKey, [
+                                    'status'       => 'processing',
                                     'fetched_rows' => 0,
                                     'created_at'   => now(),
                                     'updated_at'   => now(),
                                 ]));
                             }
 
-                            // 2. Dispatch Micro-Job for this specific combination
-                            \App\Jobs\FetchAsiCombinationJob::dispatch(
-                                $trackerId,
-                                $currentDataSourceId,
-                                $datasetSource,
-                                $indicatorCode,
-                                $classification_year,
-                                $sector_code,
-                                $nic_type
+                            $page = 1;
+                            $combinationInsertedRows = 0;
+                            $seenHashes = [];
+
+                            do {
+                                $apiUrl = "https://api.mospi.gov.in/api/asi/getASIData";
+                                // Use shell_exec with curl to bypass OpenSSL 3.0 legacy renegotiation issues
+                                $queryString = http_build_query([
+                                    'classification_year' => $classification_year,
+                                    'sector_code'         => $sector_code,
+                                    'year'                => '2023-24',
+                                    'indicator_code'      => $indicatorCode,
+                                    'nic_type'            => $nic_type,
+                                    'Format'              => 'JSON',
+                                    'page'                => $page,
+                                ]);
+                                
+                                $fullUrl = $apiUrl . '?' . $queryString;
+                                $command = sprintf('curl -s -k -X GET "%s"', $fullUrl);
+                                
+                                $retryCount = 0;
+                                $maxRetries = 3;
+                                $datasetResponse = null;
+                                $responseSuccessful = false;
+
+                                while ($retryCount < $maxRetries) {
+                                    $output = shell_exec($command);
+                                    $datasetResponse = json_decode($output, true);
+                                    
+                                    if (!empty($datasetResponse)) {
+                                        $responseSuccessful = true;
+                                        break; // Success, break retry loop
+                                    }
+                                    
+                                    $retryCount++;
+                                    Log::warning("API call failed for indicator: {$indicatorCode} at page {$page}. Retry {$retryCount}/{$maxRetries}...");
+                                    sleep(2); // Wait 2 seconds before retry
+                                }
+
+                                // Add delay to prevent rate limit for subsequent requests
+                                sleep(1);
+
+                                if (!$responseSuccessful) {
+                                    Log::error("API call permanently failed after {$maxRetries} retries for indicator: {$indicatorCode} at page {$page}");
+                                    break;
+                                }
+                                
+                                $records  = $datasetResponse['data'] ?? [];
+                                $metaData = $datasetResponse['meta_data'] ?? [];
+
+                                if (!empty($records)) {
+                                    foreach ($records as $index => $record) {
+                                        $recordYear = (string) ($record['year'] ?? $record['time_period'] ?? '');
+
+                                        if (!$this->isTargetAsiYear($recordYear)) {
+                                            continue;
+                                        }
+
+                                       
+                                        // $recordHash = $this->buildAsiRowHash($record, (string) $indicatorCode, $currentDataSourceId, (string) $classification_year, (string) $sector_code, (string) $nic_type);
+                                        // if (isset($seenHashes[$recordHash])) { continue; }
+                                        // $seenHashes[$recordHash] = true;
+
+                                       
+                                        $uniqueIdString = "{$indicatorCode}_{$currentDataSourceId}_{$classification_year}_{$sector_code}_{$nic_type}_{$page}_{$index}";
+                                        $buidInsertId = md5($uniqueIdString);
+
+                                        Log::info("ASI record fetched: indicator_code={$indicatorCode} | classification_year={$classification_year} | sector_code={$sector_code} | nic_type={$nic_type} | record=" . json_encode($record));
+
+                                      
+                                        // $rawStateName = (string) ($record['state'] ?? $record['state_ut'] ?? '');
+                                        // $stateId      = StateResolverService::getOrCreateStateId($rawStateName);
+                                        //
+                                        // $additionalFilters = array_diff_key($record, array_flip($standardKeys));
+                                        //
+                                        // $batchBuffer[] = [
+                                        //     'insertId' => $buidInsertId, // BigQuery uses this for deduplication to prevent repeated data
+                                        //     'data' => [
+                                        //         'data_source_id'     => $currentDataSourceId,
+                                        //         'indicator_id'       => $indicatorCode,
+                                        //         'state_id'           => $stateId,
+                                        //         'year'               => (string) ($record['year'] ?? $record['time_period'] ?? ''),
+                                        //         'value'              => is_numeric($record['value'] ?? null) ? (float) $record['value'] : null,
+                                        //         'additional_filters' => !empty($additionalFilters) ? json_encode($additionalFilters) : null,
+                                        //         'created_at'         => date('Y-m-d H:i:s'),
+                                        //     ]
+                                        // ];
+
+                                        $combinationInsertedRows++;
+                                        $indicatorInsertedRows++;
+                                        $totalSavedRecords++;
+
+                                        // if (count($batchBuffer) >= $batchSize) {
+                                        //     $flushBatch();
+                                        // }
+                                    }
+                                }
+
+                                $totalPages = $metaData['totalPages'] ?? 1;
+                                $page++;
+                            } while ($page <= $totalPages);
+
+                            \Illuminate\Support\Facades\DB::table('dataset_import_trackers')->updateOrInsert(
+                                [
+                                    'data_source_id'      => $currentDataSourceId,
+                                    'indicator_code'      => (string) $indicatorCode,
+                                    'classification_year' => $classification_year,
+                                    'sector_code'         => $sector_code,
+                                    'nic_type'            => $nic_type,
+                                ],
+                                [
+                                    'status'       => 'completed',
+                                    'fetched_rows' => $combinationInsertedRows,
+                                    'updated_at'   => now(),
+                                    'created_at'   => now(),
+                                ]
                             );
                         }
                     }
                 }
 
-                Log::info("Dispatched all ASI Micro-Jobs for Indicator Code: {$indicatorCode}");
+                // BigQuery flush intentionally disabled for ASI count-only mode.
+                // if (!empty($batchBuffer)) {
+                //     $flushBatch();
+                // }
+
+                $indicatorModel->update([
+                    'is_synced'      => true,
+                    'last_synced_at' => now(),
+                ]);
 
                 $savedIndicatorsCount++;
-                Log::info("Progress: Dispatched jobs for indicator {$savedIndicatorsCount}/" . count($indicators) . " ({$indicatorCode}).");
+                Log::info("Progress: Processed indicator {$savedIndicatorsCount}/" . count($indicators) . " ({$indicatorCode}). Added {$indicatorInsertedRows} rows.");
             }
         }
 
