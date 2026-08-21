@@ -1878,18 +1878,41 @@ class ProcessSourceDataImportJob implements ShouldQueue
                     foreach ($sectorCodes as $sector_code) {
                         foreach ($nicTypes as $nic_type) {
                             
-                            // 1. Create Tracker Record in MySQL
-                            $trackerId = \Illuminate\Support\Facades\DB::table('dataset_import_trackers')->insertGetId([
+                            // 1. Create or Update Tracker Record in MySQL
+                            $trackerAttributes = [
                                 'data_source_id'      => $currentDataSourceId,
                                 'indicator_code'      => $indicatorCode,
                                 'classification_year' => $classification_year,
                                 'sector_code'         => $sector_code,
                                 'nic_type'            => $nic_type,
-                                'status'              => 'pending',
-                                'fetched_rows'        => 0,
-                                'created_at'          => now(),
-                                'updated_at'          => now(),
-                            ]);
+                            ];
+                            
+                            $existingTracker = \Illuminate\Support\Facades\DB::table('dataset_import_trackers')
+                                ->where($trackerAttributes)
+                                ->first();
+
+                            if ($existingTracker) {
+                                if ($existingTracker->status === 'completed') {
+                                    Log::info("Skipping ASI Micro-Job for Indicator Code: {$indicatorCode} | Year: {$classification_year} | Sector: {$sector_code} | NIC: {$nic_type} (Already Completed)");
+                                    continue; // Skip this combination, it's already fully imported
+                                }
+
+                                $trackerId = $existingTracker->id;
+                                \Illuminate\Support\Facades\DB::table('dataset_import_trackers')
+                                    ->where('id', $trackerId)
+                                    ->update([
+                                        'status'       => 'pending',
+                                        'fetched_rows' => 0,
+                                        'updated_at'   => now(),
+                                    ]);
+                            } else {
+                                $trackerId = \Illuminate\Support\Facades\DB::table('dataset_import_trackers')->insertGetId(array_merge($trackerAttributes, [
+                                    'status'       => 'pending',
+                                    'fetched_rows' => 0,
+                                    'created_at'   => now(),
+                                    'updated_at'   => now(),
+                                ]));
+                            }
 
                             // 2. Dispatch Micro-Job for this specific combination
                             \App\Jobs\FetchAsiCombinationJob::dispatch(
@@ -1911,6 +1934,7 @@ class ProcessSourceDataImportJob implements ShouldQueue
                 Log::info("Progress: Dispatched jobs for indicator {$savedIndicatorsCount}/" . count($indicators) . " ({$indicatorCode}).");
             }
         }
+
 
 
         // // Mark dataset sync complete

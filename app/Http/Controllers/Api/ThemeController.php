@@ -211,7 +211,8 @@ class ThemeController extends Controller
                             'id' => (int) $ind->id,
                             'name' => $ind->name,
                             'alice_name' => $ind->alias,
-                            'indicator_source' => $themeValue,
+                            'indicator_source' => $themeValue['text'] ?? null,
+                            'indicator_order'  => $themeValue['order'] ?? 0,
                             'charts' => $chartsList
                         ];
                     }
