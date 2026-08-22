@@ -221,7 +221,7 @@ class MospiController extends Controller
 
     private $simpleSources =  [
         // "PLFS",  //done on local
-        "CPI",
+        // "CPI",
         // "IIP",
         // "ASI",
         // "NAS",
@@ -242,7 +242,7 @@ class MospiController extends Controller
         //    "HCES",
         //    "TUS",
             // "EC",
-        //    "UDISE",
+           "UDISE",
         //    "MNRE",
         //    "NSS80"
     ];
