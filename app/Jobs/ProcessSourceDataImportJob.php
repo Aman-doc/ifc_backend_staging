@@ -2077,10 +2077,28 @@ class ProcessSourceDataImportJob implements ShouldQueue
         ['dataset_id'  => 'CPI_INDEX', 'description' => 'CPI Index Data', 'is_synced'   => false]
     );
 
+    Log::info("CPI Index DataSource processed", [
+        'action'         => $cpiIndexDataSource->wasRecentlyCreated ? 'CREATED' : 'FOUND',
+        'id'             => $cpiIndexDataSource->id,
+        'title'          => $cpiIndexDataSource->title,
+        'dataset_id'     => $cpiIndexDataSource->dataset_id,
+        'parent_id'      => $cpiIndexDataSource->parent_datasource_id
+    ]);
+
     $cpiInflationDataSource = DataSource::firstOrCreate(
         ['title' => 'CPI Inflation', 'parent_datasource_id' => $dataSourceId],
         ['dataset_id'  => 'CPI_INFLATION', 'description' => 'CPI Inflation Data', 'is_synced'   => false]
     );
+
+    Log::info("CPI Inflation DataSource processed", [
+        'action'         => $cpiInflationDataSource->wasRecentlyCreated ? 'CREATED' : 'FOUND',
+        'id'             => $cpiInflationDataSource->id,
+        'title'          => $cpiInflationDataSource->title,
+        'dataset_id'     => $cpiInflationDataSource->dataset_id,
+        'parent_id'      => $cpiInflationDataSource->parent_datasource_id
+    ]);
+
+
 
     $page = 1;
     do {
