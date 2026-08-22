@@ -2072,10 +2072,29 @@ class ProcessSourceDataImportJob implements ShouldQueue
     else if ($datasetSource === "CPI") {
     Log::info("Starting CPI data import into BigQuery.");
 
+    $allDataSources = DataSource::all();
+
+Log::info("=== DATA SOURCES TABLE CONTENT (Total: " . $allDataSources->count() . ") ===");
+
+foreach ($allDataSources as $source) {
+    Log::info(sprintf(
+        "ID: %s | Dataset ID: %s | Parent ID: %s | Title: %s",
+        $source->id,
+        $source->dataset_id ?? 'NULL',
+        $source->parent_datasource_id ?? 'NULL',
+        $source->title ?? 'N/A'
+    ));
+}
+
+Log::info("=========================================");
+
     $cpiIndexDataSource = DataSource::firstOrCreate(
         ['title' => 'CPI Index', 'parent_datasource_id' => $dataSourceId],
         ['dataset_id'  => 'CPI_INDEX', 'description' => 'CPI Index Data', 'is_synced'   => false]
     );
+
+
+
 
     Log::info("CPI Index DataSource processed", [
         'action'         => $cpiIndexDataSource->wasRecentlyCreated ? 'CREATED' : 'FOUND',
