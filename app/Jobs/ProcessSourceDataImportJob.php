@@ -2072,193 +2072,156 @@ class ProcessSourceDataImportJob implements ShouldQueue
     else if ($datasetSource === "CPI") {
     Log::info("Starting CPI data import into BigQuery.");
 
-    $allDataSources = DataSource::all();
-
-Log::info("=== DATA SOURCES TABLE CONTENT (Total: " . $allDataSources->count() . ") ===");
-
-foreach ($allDataSources as $source) {
-    Log::info(sprintf(
-        "ID: %s | Dataset ID: %s | Parent ID: %s | Title: %s",
-        $source->id,
-        $source->dataset_id ?? 'NULL',
-        $source->parent_datasource_id ?? 'NULL',
-        $source->title ?? 'N/A'
-    ));
-}
-
-Log::info("=========================================");
-
     $cpiIndexDataSource = DataSource::firstOrCreate(
         ['title' => 'CPI Index', 'parent_datasource_id' => $dataSourceId],
         ['dataset_id'  => 'CPI_INDEX', 'description' => 'CPI Index Data', 'is_synced'   => false]
     );
-
-
-
-
-    Log::info("CPI Index DataSource processed", [
-        'action'         => $cpiIndexDataSource->wasRecentlyCreated ? 'CREATED' : 'FOUND',
-        'id'             => $cpiIndexDataSource->id,
-        'title'          => $cpiIndexDataSource->title,
-        'dataset_id'     => $cpiIndexDataSource->dataset_id,
-        'parent_id'      => $cpiIndexDataSource->parent_datasource_id
-    ]);
 
     $cpiInflationDataSource = DataSource::firstOrCreate(
         ['title' => 'CPI Inflation', 'parent_datasource_id' => $dataSourceId],
         ['dataset_id'  => 'CPI_INFLATION', 'description' => 'CPI Inflation Data', 'is_synced'   => false]
     );
 
-    Log::info("CPI Inflation DataSource processed", [
-        'action'         => $cpiInflationDataSource->wasRecentlyCreated ? 'CREATED' : 'FOUND',
-        'id'             => $cpiInflationDataSource->id,
-        'title'          => $cpiInflationDataSource->title,
-        'dataset_id'     => $cpiInflationDataSource->dataset_id,
-        'parent_id'      => $cpiInflationDataSource->parent_datasource_id
-    ]);
-
-
-
     $page = 1;
-    // do {
-    //     $apiUrl = "https://api.mospi.gov.in/api/cpi/getCPIData";
-    //     $queryString = http_build_query([
-    //         'base_year' => '2024',
-    //         'year'      => '2026',
-    //         'limit'     => 20,
-    //         'page'      => $page,
-    //     ]);
+    do {
+        $apiUrl = "https://api.mospi.gov.in/api/cpi/getCPIData";
+        $queryString = http_build_query([
+            'base_year' => '2024',
+            'year'      => '2026',
+            'limit'     => 20,
+            'page'      => $page,
+        ]);
 
-    //     $fullUrl = $apiUrl . '?' . $queryString;
-    //     Log::info("Calling CPI API Page {$page}: {$fullUrl}");
+        $fullUrl = $apiUrl . '?' . $queryString;
+        Log::info("Calling CPI API Page {$page}: {$fullUrl}");
 
-    //     // Added timeouts to curl (--connect-timeout 10 -m 30) to prevent hanging
-    //     $command = sprintf('curl -s -k --connect-timeout 10 -m 30 -X GET "%s"', $fullUrl);
-    //     $output = shell_exec($command);
+        // Added timeouts to curl (--connect-timeout 10 -m 30) to prevent hanging
+        $command = sprintf('curl -s -k --connect-timeout 10 -m 30 -X GET "%s"', $fullUrl);
+        $output = shell_exec($command);
 
-    //     if (empty($output)) {
-    //         Log::error("CPI API returned empty response on Page {$page}");
-    //         break;
-    //     }
+        if (empty($output)) {
+            Log::error("CPI API returned empty response on Page {$page}");
+            break;
+        }
 
-    //     $datasetResponse = json_decode($output, true);
+        $datasetResponse = json_decode($output, true);
 
-    //     if (json_last_error() !== JSON_ERROR_NONE) {
-    //         Log::error("CPI API JSON Decode Error on Page {$page}: " . json_last_error_msg(), [
-    //             'raw_output' => substr($output, 0, 500) // Log first 500 chars of response
-    //         ]);
-    //         break;
-    //     }
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            Log::error("CPI API JSON Decode Error on Page {$page}: " . json_last_error_msg(), [
+                'raw_output' => substr($output, 0, 500) // Log first 500 chars of response
+            ]);
+            break;
+        }
 
-    //     $records  = $datasetResponse['data'] ?? [];
-    //     $metaData = $datasetResponse['meta_data'] ?? [];
+        $records  = $datasetResponse['data'] ?? [];
+        $metaData = $datasetResponse['meta_data'] ?? [];
 
-    //     Log::info("CPI API Page {$page} fetched. Records count: " . count($records));
+        Log::info("CPI API Page {$page} fetched. Records count: " . count($records));
 
-    //     if (!empty($records)) {
-    //         foreach ($records as $record) {
-    //             $divisionName  = (string) ($record['division'] ?? 'Unknown');
-    //             $code          = (string) ($record['code'] ?? '');
-    //             $indicatorCode = !empty($code) ? $code : "CPI_" . md5($divisionName);
+        if (!empty($records)) {
+            foreach ($records as $record) {
+                $divisionName  = (string) ($record['division'] ?? 'Unknown');
+                $code          = (string) ($record['code'] ?? '');
+                $indicatorCode = !empty($code) ? $code : "CPI_" . md5($divisionName);
 
-    //             // 1. CPI Index ke liye Indicator Create / Update
-    //             $cpiIndexIndicator = Indicator::updateOrCreate(
-    //                 [
-    //                     'data_source_id' => $cpiIndexDataSource->id,
-    //                     'indicator_code' => $indicatorCode,
-    //                 ],
-    //                 [
-    //                     'name'      => $divisionName,
-    //                     'is_synced' => false,
-    //                 ]
-    //             );
+                // 1. CPI Index ke liye Indicator Create / Update
+                $cpiIndexIndicator = Indicator::updateOrCreate(
+                    [
+                        'data_source_id' => $cpiIndexDataSource->id,
+                        'indicator_code' => $indicatorCode,
+                    ],
+                    [
+                        'name'      => $divisionName,
+                        'is_synced' => false,
+                    ]
+                );
 
-    //             Log::info("CPI Index Indicator processed", [
-    //                 'action'         => $cpiIndexIndicator->wasRecentlyCreated ? 'CREATED' : 'UPDATED',
-    //                 'indicator_id'   => $cpiIndexIndicator->id,
-    //                 'indicator_code' => $cpiIndexIndicator->indicator_code,
-    //                 'indicator_name' => $cpiIndexIndicator->name,
-    //                 'data_source_id' => $cpiIndexDataSource->id
-    //             ]);
+                Log::info("CPI Index Indicator processed", [
+                    'action'         => $cpiIndexIndicator->wasRecentlyCreated ? 'CREATED' : 'UPDATED',
+                    'indicator_id'   => $cpiIndexIndicator->id,
+                    'indicator_code' => $cpiIndexIndicator->indicator_code,
+                    'indicator_name' => $cpiIndexIndicator->name,
+                    'data_source_id' => $cpiIndexDataSource->id
+                ]);
 
-    //             // 2. CPI Inflation ke liye Indicator Create / Update
-    //             $cpiInflationIndicator = Indicator::updateOrCreate(
-    //                 [
-    //                     'data_source_id' => $cpiInflationDataSource->id,
-    //                     'indicator_code' => $indicatorCode,
-    //                 ],
-    //                 [
-    //                     'name'      => $divisionName,
-    //                     'is_synced' => false,
-    //                 ]
-    //             );
+                // 2. CPI Inflation ke liye Indicator Create / Update
+                $cpiInflationIndicator = Indicator::updateOrCreate(
+                    [
+                        'data_source_id' => $cpiInflationDataSource->id,
+                        'indicator_code' => $indicatorCode,
+                    ],
+                    [
+                        'name'      => $divisionName,
+                        'is_synced' => false,
+                    ]
+                );
 
-    //             Log::info("CPI Inflation Indicator processed", [
-    //                 'action'         => $cpiInflationIndicator->wasRecentlyCreated ? 'CREATED' : 'UPDATED',
-    //                 'indicator_id'   => $cpiInflationIndicator->id,
-    //                 'indicator_code' => $cpiInflationIndicator->indicator_code,
-    //                 'indicator_name' => $cpiInflationIndicator->name,
-    //                 'data_source_id' => $cpiInflationDataSource->id
-    //             ]);
+                Log::info("CPI Inflation Indicator processed", [
+                    'action'         => $cpiInflationIndicator->wasRecentlyCreated ? 'CREATED' : 'UPDATED',
+                    'indicator_id'   => $cpiInflationIndicator->id,
+                    'indicator_code' => $cpiInflationIndicator->indicator_code,
+                    'indicator_name' => $cpiInflationIndicator->name,
+                    'data_source_id' => $cpiInflationDataSource->id
+                ]);
 
-    //             // $rawStateName = (string) ($record['state'] ?? '');
-    //             // $stateId      = StateResolverService::getOrCreateStateId($rawStateName);
-    //             // $yearVal      = (string) ($record['year'] ?? '');
+                $rawStateName = (string) ($record['state'] ?? '');
+                $stateId      = StateResolverService::getOrCreateStateId($rawStateName);
+                $yearVal      = (string) ($record['year'] ?? '');
 
-    //             // $additionalFilters = array_filter([
-    //             //     'class'      => $record['class'] ?? null,
-    //             //     'group'      => $record['group'] ?? null,
-    //             //     'imputation' => $record['imputation'] ?? null,
-    //             //     'item'       => $record['item'] ?? null,
-    //             //     'month'      => $record['month'] ?? null,
-    //             //     'sector'     => $record['sector'] ?? null,
-    //             //     'series'     => $record['series'] ?? null,
-    //             //     'sub_class'  => $record['sub_class'] ?? null,
-    //             //     'base_year'  => $record['base_year'] ?? null,
-    //             // ], fn($val) => $val !== null);
+                $additionalFilters = array_filter([
+                    'class'      => $record['class'] ?? null,
+                    'group'      => $record['group'] ?? null,
+                    'imputation' => $record['imputation'] ?? null,
+                    'item'       => $record['item'] ?? null,
+                    'month'      => $record['month'] ?? null,
+                    'sector'     => $record['sector'] ?? null,
+                    'series'     => $record['series'] ?? null,
+                    'sub_class'  => $record['sub_class'] ?? null,
+                    'base_year'  => $record['base_year'] ?? null,
+                ], fn($val) => $val !== null);
 
-    //             // // 3. Buffer Index Data for BigQuery
-    //             // if (isset($record['index']) && is_numeric($record['index'])) {
-    //             //     $batchBuffer[] = [
-    //             //         'data' => [
-    //             //             'data_source_id'     => $cpiIndexDataSource->id,
-    //             //             'indicator_id'       => (string) $cpiIndexIndicator->id,
-    //             //             'state_id'           => $stateId,
-    //             //             'year'               => $yearVal,
-    //             //             'value'              => (float) $record['index'],
-    //             //             'additional_filters' => !empty($additionalFilters) ? json_encode($additionalFilters) : null,
-    //             //             'created_at'         => date('Y-m-d H:i:s'),
-    //             //         ]
-    //             //     ];
-    //             // }
+                // 3. Buffer Index Data for BigQuery
+                if (isset($record['index']) && is_numeric($record['index'])) {
+                    $batchBuffer[] = [
+                        'data' => [
+                            'data_source_id'     => $cpiIndexDataSource->id,
+                            'indicator_id'       => (string) $cpiIndexIndicator->id,
+                            'state_id'           => $stateId,
+                            'year'               => $yearVal,
+                            'value'              => (float) $record['index'],
+                            'additional_filters' => !empty($additionalFilters) ? json_encode($additionalFilters) : null,
+                            'created_at'         => date('Y-m-d H:i:s'),
+                        ]
+                    ];
+                }
 
-    //             // // 4. Buffer Inflation Data for BigQuery
-    //             // if (isset($record['inflation']) && is_numeric($record['inflation'])) {
-    //             //     $batchBuffer[] = [
-    //             //         'data' => [
-    //             //             'data_source_id'     => $cpiInflationDataSource->id,
-    //             //             'indicator_id'       => (string) $cpiInflationIndicator->id,
-    //             //             'state_id'           => $stateId,
-    //             //             'year'               => $yearVal,
-    //             //             'value'              => (float) $record['inflation'],
-    //             //             'additional_filters' => !empty($additionalFilters) ? json_encode($additionalFilters) : null,
-    //             //             'created_at'         => date('Y-m-d H:i:s'),
-    //             //         ]
-    //             //     ];
-    //             // }
+                // 4. Buffer Inflation Data for BigQuery
+                if (isset($record['inflation']) && is_numeric($record['inflation'])) {
+                    $batchBuffer[] = [
+                        'data' => [
+                            'data_source_id'     => $cpiInflationDataSource->id,
+                            'indicator_id'       => (string) $cpiInflationIndicator->id,
+                            'state_id'           => $stateId,
+                            'year'               => $yearVal,
+                            'value'              => (float) $record['inflation'],
+                            'additional_filters' => !empty($additionalFilters) ? json_encode($additionalFilters) : null,
+                            'created_at'         => date('Y-m-d H:i:s'),
+                        ]
+                    ];
+                }
 
-    //             // if (count($batchBuffer) >= $batchSize) {
-    //             //     $flushBatch();
-    //             // }
-    //         }
-    //     } else {
-    //         Log::warning("No records found in API response for CPI Page {$page}");
-    //     }
+                if (count($batchBuffer) >= $batchSize) {
+                    $flushBatch();
+                }
+            }
+        } else {
+            Log::warning("No records found in API response for CPI Page {$page}");
+        }
 
-    //     $totalPages = $metaData['totalPages'] ?? 1;
-    //     $page++;
+        $totalPages = $metaData['totalPages'] ?? 1;
+        $page++;
 
-    // } while ($page <= $totalPages);
+    } while ($page <= $totalPages);
 
     $flushBatch();
     Log::info("CPI Import into BigQuery completed successfully.");
