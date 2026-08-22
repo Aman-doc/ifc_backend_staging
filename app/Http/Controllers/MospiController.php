@@ -221,9 +221,9 @@ class MospiController extends Controller
 
     private $simpleSources =  [
         // "PLFS",  //done on local
-        // "CPI",
+        "CPI",
         // "IIP",
-        "ASI",
+        // "ASI",
         // "NAS",
         // "WPI",
         // "ENERGY",
