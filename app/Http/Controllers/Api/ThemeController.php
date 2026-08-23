@@ -236,7 +236,7 @@ class ThemeController extends Controller
 
 
 
-    public function getThemeWithIndicators(Request $request, BigQueryService $bigQueryService)
+public function getThemeWithIndicators(Request $request, BigQueryService $bigQueryService)
 {
     $startTime = microtime(true);
 
@@ -277,7 +277,8 @@ class ThemeController extends Controller
         return response()->json(['message' => 'No data retrieved from BigQueryService'], 500);
     }
 
-    // 4. Fetch SubIndicators Mapping (Using parent target ID to ensure matches)
+    // 4. Fetch SubIndicators Mapping (Key: name => Value: alias_name)
+    // Here we query using $targetIndicatorId to ensure parent indicator match
     $subIndicators = SubIndicator::where('indicator_id', $targetIndicatorId)
         ->whereNotNull('alias_name')
         ->where('alias_name', '!=', '')
@@ -287,7 +288,7 @@ class ThemeController extends Controller
     $dataList = [];
     $rows     = $bqResult['data'];
 
-    // 5. Process Rows & Map Sub-Indicator Aliases
+    // 5. Process Rows without modifying dataset values
     foreach ($rows as $index => $row) {
         $item = [
             'value'    => (float) ($row['value'] ?? 0),
@@ -300,12 +301,8 @@ class ThemeController extends Controller
             if (is_array($additionalFilters)) {
                 foreach ($additionalFilters as $key => $val) {
                     if ($key !== '' && $val !== null) {
-                        // Agar sub_indicator field ho aur mapping array me exist karta ho
-                        if ($key === 'sub_indicator' && isset($subIndicators[$val])) {
-                            $item[$key] = $subIndicators[$val];
-                        } else {
-                            $item[$key] = $val;
-                        }
+                        // Original values in data are kept untouched
+                        $item[$key] = $val;
                     }
                 }
             }
@@ -316,11 +313,11 @@ class ThemeController extends Controller
 
     $executionTime = round((microtime(true) - $startTime) * 1000, 2);
 
-    // 6. Response Builder
+    // 6. Response Builder with dataset_alias block
     $response = [
         'data'          => $dataList,
         'dataset_alias' => [
-            'sub_indicator' => (object) $subIndicators // Empty array ko empty JSON object {} me rakhne ke liye
+            'sub_indicator' => (object) $subIndicators
         ]
     ];
 
