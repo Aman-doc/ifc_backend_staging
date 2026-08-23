@@ -47,9 +47,8 @@ class IndicatorController extends Controller
         'name'            => 'required|string|max:255',
         'data_source_id'  => 'required|exists:data_sources,id',
         'parent_id'       => 'nullable|exists:indicators,id',
-        'alias'           => 'nullable|string|max:255',
+        'alias'            => 'nullable|string',
         'theme_id'        => 'nullable|exists:themes,id',
-        // indicator_code ab custom indicators ke liye optional ya empty rahega
         'indicator_code'  => 'nullable|string|max:100', 
     ]);
 
@@ -70,13 +69,14 @@ class IndicatorController extends Controller
 
 public function update(Request $request, $id)
 {
+    // dd($request->all());
     $indicator = Indicator::findOrFail($id);
 
     $request->validate([
         'name'            => 'required|string|max:255',
         'data_source_id'  => 'required|exists:data_sources,id',
         'parent_id'       => 'nullable|exists:indicators,id',
-        'alias'           => 'nullable|string|max:255',
+        'alias'           => 'nullable|string',
         'theme_id'        => 'nullable|exists:themes,id',
         'indicator_code'  => 'nullable|string|max:100',
     ]);
@@ -87,7 +87,6 @@ public function update(Request $request, $id)
         'parent_id'       => $request->parent_id,
         'alias'           => $request->alias,
         'theme_id'        => $request->theme_id,
-        // Agar parent assigned hai toh code null ho jayega
         'indicator_code'  => $request->parent_id ? null : $request->indicator_code,
     ]);
 
