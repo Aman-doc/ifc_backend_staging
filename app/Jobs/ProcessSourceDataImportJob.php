@@ -1799,6 +1799,8 @@ class ProcessSourceDataImportJob implements ShouldQueue
 
                 Log::info("Saved Indicator into MySQL DB -> ID: {$indicatorModel->id} | Code: {$indicatorCode} | DataSource ID: {$currentDataSourceId}");
 
+                $indicator_id = $indicatorModel->id;
+
                 $page = 1;
                 $totalPages = null;
                 $indicatorInsertedRows = 0;
@@ -1843,7 +1845,7 @@ class ProcessSourceDataImportJob implements ShouldQueue
                             $batchBuffer[] = [
                                 'data' => [
                                     'data_source_id'     => $currentDataSourceId,
-                                    'indicator_id'       => $indicatorModel->id,
+                                    'indicator_id'       => $indicator_id,
                                     'state_id'           => $stateId,
                                     'year'               => (string) ($record['year'] ?? $record['time_period'] ?? ''),
                                     'value'              => is_numeric($record['value'] ?? null) ? (float) $record['value'] : null,
