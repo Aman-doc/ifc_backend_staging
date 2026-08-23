@@ -1843,7 +1843,7 @@ class ProcessSourceDataImportJob implements ShouldQueue
                             $batchBuffer[] = [
                                 'data' => [
                                     'data_source_id'     => $currentDataSourceId,
-                                    'indicator_id'       => $indicatorCode,
+                                    'indicator_id'       => $indicatorModel->id,
                                     'state_id'           => $stateId,
                                     'year'               => (string) ($record['year'] ?? $record['time_period'] ?? ''),
                                     'value'              => is_numeric($record['value'] ?? null) ? (float) $record['value'] : null,
