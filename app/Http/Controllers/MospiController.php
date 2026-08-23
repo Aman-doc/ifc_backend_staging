@@ -219,7 +219,7 @@ class MospiController extends Controller
         ], 200);
     }
 
-    
+
     private $simpleSources =  [
         // "PLFS",    //wating for run
         // "CPI",
@@ -239,11 +239,11 @@ class MospiController extends Controller
         //    "NSS76",
         //    "NSS75E",
         //    "NSS79",
-            "CPIALRL",
+            // "CPIALRL",
         //    "HCES",
         //    "TUS",
             // "EC",
-        //    "UDISE",   // waiting for run
+           "UDISE",   // waiting for run
         //    "MNRE",
         //    "NSS80"
     ];
