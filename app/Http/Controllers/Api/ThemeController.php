@@ -236,107 +236,107 @@ class ThemeController extends Controller
 
 
 
-public function getThemeWithIndicators(Request $request, BigQueryService $bigQueryService)
-{
-    $startTime = microtime(true);
+    public function getThemeWithIndicators(Request $request, BigQueryService $bigQueryService)
+    {
+        $startTime = microtime(true);
 
-    $indicatorId = $request->get('indicator');
-    if (!$indicatorId) {
-        return response()->json(['message' => 'indicator parameter is required'], 400);
-    }
+        $indicatorId = $request->get('indicator');
+        if (!$indicatorId) {
+            return response()->json(['message' => 'indicator parameter is required'], 400);
+        }
 
-    // 1. Check pagination parameters
-    $isPaginated = $request->has('per_page') || $request->has('page');
-    $perPage     = $isPaginated ? max(1, (int) $request->get('per_page', 10000)) : null;
-    $page        = $isPaginated ? max(1, (int) $request->get('page', 1)) : null;
+        // 1. Check pagination parameters
+        $isPaginated = $request->has('per_page') || $request->has('page');
+        $perPage     = $isPaginated ? max(1, (int) $request->get('per_page', 10000)) : null;
+        $page        = $isPaginated ? max(1, (int) $request->get('page', 1)) : null;
 
-    // 2. Prepare payload & Parent Check
-    $queryParams = [
-        'indicator' => $indicatorId,
-        'source'    => $request->get('source'),
-        'state_id'  => $request->get('state_id'),
-        'year'      => $request->get('year'),
-        'per_page'  => $perPage,
-        'page'      => $page,
-    ];
-
-    $targetIndicatorId = $indicatorId;
-    $currentIndicator  = Indicator::find($indicatorId);
-    if ($currentIndicator && !empty($currentIndicator->parent_id)) {
-        $targetIndicatorId = $currentIndicator->parent_id;
-        $queryParams['indicator'] = $targetIndicatorId;
-    }
-
-    // 3. BigQuery Data Fetch
-    $bqResult = $bigQueryService->getIndicatorData($queryParams);
-
-    if (!$bqResult || !isset($bqResult['data'])) {
-        \Log::error('Theme Indicators Pipeline Error: Service returned invalid payload or crashed.', [
-            'query_params' => $queryParams
-        ]);
-        return response()->json(['message' => 'No data retrieved from BigQueryService'], 500);
-    }
-
-    // 4. Fetch SubIndicators Mapping (Key: name => Value: alias_name)
-    // Here we query using $targetIndicatorId to ensure parent indicator match
-    $subIndicators = SubIndicator::where('indicator_id', $targetIndicatorId)
-        ->whereNotNull('alias_name')
-        ->where('alias_name', '!=', '')
-        ->pluck('alias_name', 'name')
-        ->toArray();
-
-    $dataList = [];
-    $rows     = $bqResult['data'];
-
-    // 5. Process Rows without modifying dataset values
-    foreach ($rows as $index => $row) {
-        $item = [
-            'value'    => (float) ($row['value'] ?? 0),
-            'state_id' => (int) ($row['state_id'] ?? 0),
-            'year'     => (string) ($row['year'] ?? ''),
+        // 2. Prepare payload & Parent Check
+        $queryParams = [
+            'indicator' => $indicatorId,
+            'source'    => $request->get('source'),
+            'state_id'  => $request->get('state_id'),
+            'year'      => $request->get('year'),
+            'per_page'  => $perPage,
+            'page'      => $page,
         ];
 
-        if (!empty($row['additional_filters']) && $row['additional_filters'] !== 'null') {
-            $additionalFilters = json_decode($row['additional_filters'], true);
-            if (is_array($additionalFilters)) {
-                foreach ($additionalFilters as $key => $val) {
-                    if ($key !== '' && $val !== null) {
-                        // Original values in data are kept untouched
-                        $item[$key] = $val;
+        $targetIndicatorId = $indicatorId;
+        $currentIndicator  = Indicator::find($indicatorId);
+        if ($currentIndicator && !empty($currentIndicator->parent_id)) {
+            $targetIndicatorId = $currentIndicator->parent_id;
+            $queryParams['indicator'] = $targetIndicatorId;
+        }
+
+        // 3. BigQuery Data Fetch
+        $bqResult = $bigQueryService->getIndicatorData($queryParams);
+
+        if (!$bqResult || !isset($bqResult['data'])) {
+            \Log::error('Theme Indicators Pipeline Error: Service returned invalid payload or crashed.', [
+                'query_params' => $queryParams
+            ]);
+            return response()->json(['message' => 'No data retrieved from BigQueryService'], 500);
+        }
+
+        // 4. Fetch SubIndicators Mapping (Key: name => Value: alias_name)
+        // Here we query using $targetIndicatorId to ensure parent indicator match
+        $subIndicators = SubIndicator::where('indicator_id', $targetIndicatorId)
+            ->whereNotNull('alias_name')
+            ->where('alias_name', '!=', '')
+            ->pluck('alias_name', 'name')
+            ->toArray();
+
+        $dataList = [];
+        $rows     = $bqResult['data'];
+
+        // 5. Process Rows without modifying dataset values
+        foreach ($rows as $index => $row) {
+            $item = [
+                'value'    => (float) ($row['value'] ?? 0),
+                'state_id' => (int) ($row['state_id'] ?? 0),
+                'year'     => (string) ($row['year'] ?? ''),
+            ];
+
+            if (!empty($row['additional_filters']) && $row['additional_filters'] !== 'null') {
+                $additionalFilters = json_decode($row['additional_filters'], true);
+                if (is_array($additionalFilters)) {
+                    foreach ($additionalFilters as $key => $val) {
+                        if ($key !== '' && $val !== null) {
+                            // Original values in data are kept untouched
+                            $item[$key] = $val;
+                        }
                     }
                 }
             }
+
+            $dataList[] = $item;
         }
 
-        $dataList[] = $item;
-    }
+        $executionTime = round((microtime(true) - $startTime) * 1000, 2);
 
-    $executionTime = round((microtime(true) - $startTime) * 1000, 2);
-
-    // 6. Response Builder with dataset_alias block
-    $response = [
-        'data'          => $dataList,
-        'dataset_alias' => [
-            'sub_indicator' => (object) $subIndicators
-        ]
-    ];
-
-    if ($isPaginated) {
-        $totalRecords     = (int) ($bqResult['total'] ?? count($dataList));
-        $effectivePerPage = (int) ($bqResult['per_page'] ?? $perPage);
-        $currentPage      = (int) ($bqResult['current_page'] ?? $page);
-        $lastPage         = $bqResult['last_page'] ?? (int) ceil($totalRecords / max(1, $effectivePerPage));
-
-        $response['pagination'] = [
-            'total'        => $totalRecords,
-            'per_page'     => $effectivePerPage,
-            'current_page' => $currentPage,
-            'last_page'    => $lastPage,
+        // 6. Response Builder with dataset_alias block
+        $response = [
+            'data'          => $dataList,
+            'dataset_alias' => [
+                'sub_indicator' => (object) $subIndicators
+            ]
         ];
-    }
 
-    return response()->json($response);
-}
+        if ($isPaginated) {
+            $totalRecords     = (int) ($bqResult['total'] ?? count($dataList));
+            $effectivePerPage = (int) ($bqResult['per_page'] ?? $perPage);
+            $currentPage      = (int) ($bqResult['current_page'] ?? $page);
+            $lastPage         = $bqResult['last_page'] ?? (int) ceil($totalRecords / max(1, $effectivePerPage));
+
+            $response['pagination'] = [
+                'total'        => $totalRecords,
+                'per_page'     => $effectivePerPage,
+                'current_page' => $currentPage,
+                'last_page'    => $lastPage,
+            ];
+        }
+
+        return response()->json($response);
+    }
 
 
     public function show($id)
