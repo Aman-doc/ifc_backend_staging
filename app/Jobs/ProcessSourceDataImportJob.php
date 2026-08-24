@@ -2700,28 +2700,7 @@ class ProcessSourceDataImportJob implements ShouldQueue
                 'classification_year' => '2026',
             ];
 
-            $existingTracker = \Illuminate\Support\Facades\DB::table('dataset_import_trackers')->where($combinationKey)->first();
-
-            if ($existingTracker && $existingTracker->status === 'completed') {
-                Log::info("Skipping CPI import already completed.");
-                return;
-            }
-
-            if ($existingTracker) {
-                \Illuminate\Support\Facades\DB::table('dataset_import_trackers')
-                    ->where('id', $existingTracker->id)
-                    ->update([
-                        'status'     => 'processing',
-                        'updated_at' => now(),
-                    ]);
-            } else {
-                \Illuminate\Support\Facades\DB::table('dataset_import_trackers')->insert(array_merge($combinationKey, [
-                    'status'       => 'processing',
-                    'fetched_rows' => 0,
-                    'created_at'   => now(),
-                    'updated_at'   => now(),
-                ]));
-            }
+            
 
             // 1. Create or Update Data Sources for Index and Inflation
             $cpiIndexDataSource = DataSource::updateOrCreate(

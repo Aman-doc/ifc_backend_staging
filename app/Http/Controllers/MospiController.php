@@ -222,9 +222,9 @@ class MospiController extends Controller
 
     private $simpleSources =  [
         // "PLFS",    //wating for run
-        "CPI",
+        // "CPI",
         // "IIP",
-        // "ASI",    // waiting for run
+        "ASI",    // waiting for run
         // "NAS",
         // "WPI",
         // "ENERGY",
