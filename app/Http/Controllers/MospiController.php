@@ -222,7 +222,7 @@ class MospiController extends Controller
 
     private $simpleSources =  [
         // "PLFS",    //wating for run
-        // "CPI",
+        "CPI",
         // "IIP",
         // "ASI",    // waiting for run
         // "NAS",
@@ -243,7 +243,7 @@ class MospiController extends Controller
         //    "HCES",
         //    "TUS",
             // "EC",
-           "UDISE",   // waiting for run
+        //    "UDISE",   // waiting for run
         //    "MNRE",
         //    "NSS80"
     ];
