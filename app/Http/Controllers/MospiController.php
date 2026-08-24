@@ -243,7 +243,7 @@ class MospiController extends Controller
         //    "HCES",
         //    "TUS",
             // "EC",
-        //    "UDISE",   // waiting for run
+        //    "UDISE",   
         //    "MNRE",
         //    "NSS80"
     ];
