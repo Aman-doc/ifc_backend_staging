@@ -1457,109 +1457,220 @@ class ProcessSourceDataImportJob implements ShouldQueue
             }
         }
 
-        else if ($datasetSource === "CPIALRL") {
-            
-            $indicatorsResponse = $this->callMospiApi('get_indicators', [
-                'dataset' => $datasetSource
+     else if ($datasetSource === "CPIALRL") {
+    Log::info("=== Starting CPIALRL Dataset Sync Process ===");
+
+    // 1. Parent DataSource Fetch
+    $parentDataSourceId = $dataSourceId;
+    Log::info("Parent DataSource loaded", ['parent_id' => $dataSourceId]);
+
+    // 2. Child DataSources: dataset_id se search/update/create (Column name fix: dataset_id)
+    $generalDs = DataSource::where('dataset_id', 'CPIALRL_GENERAL_INDEX')->first();
+    if ($generalDs) {
+        $generalDs->update([
+            'parent_datasource_id' => $parentDataSourceId,
+            'title'                => 'CPIALRL General Index'
+        ]);
+        Log::info("DataSource Updated [General Index]", ['id' => $generalDs->id, 'dataset_id' => 'CPIALRL_GENERAL_INDEX']);
+    } else {
+        $generalDs = DataSource::create([
+            'parent_datasource_id' => $parentDataSourceId,
+            'dataset_id'           => 'CPIALRL_GENERAL_INDEX',
+            'title'                => 'CPIALRL General Index'
+        ]);
+        Log::info("DataSource Created [General Index]", ['id' => $generalDs->id, 'dataset_id' => 'CPIALRL_GENERAL_INDEX']);
+    }
+
+    $groupDs = DataSource::where('dataset_id', 'CPIALRL_GROUP_INDEX')->first();
+    if ($groupDs) {
+        $groupDs->update([
+            'parent_datasource_id' => $parentDataSourceId,
+            'title'                => 'CPIALRL Group Index'
+        ]);
+        Log::info("DataSource Updated [Group Index]", ['id' => $groupDs->id, 'dataset_id' => 'CPIALRL_GROUP_INDEX']);
+    } else {
+        $groupDs = DataSource::create([
+            'parent_datasource_id' => $parentDataSourceId,
+            'dataset_id'           => 'CPIALRL_GROUP_INDEX',
+            'title'                => 'CPIALRL Group Index'
+        ]);
+        Log::info("DataSource Created [Group Index]", ['id' => $groupDs->id, 'dataset_id' => 'CPIALRL_GROUP_INDEX']);
+    }
+
+    // 3. Metric Mapping Definition
+    $valueColumns = [
+        'index_al'     => ['name' => 'Index AL',     'code_suffix' => 'INDEX_AL'],
+        'index_rl'     => ['name' => 'Index RL',     'code_suffix' => 'INDEX_RL'],
+        'inflation_al' => ['name' => 'Inflation AL', 'code_suffix' => 'INFLATION_AL'],
+        'inflation_rl' => ['name' => 'Inflation RL', 'code_suffix' => 'INFLATION_RL'],
+    ];
+
+    // API Call for Indicators
+    $indicatorsResponse = $this->callMospiApi('get_indicators', [
+        'dataset' => $datasetSource
+    ]);
+
+    if (!$indicatorsResponse || !empty($indicatorsResponse['result']['isError'])) {
+        Log::error("Failed to fetch indicators for dataset {$datasetSource}");
+        return;
+    }
+
+    $rawContent  = $indicatorsResponse['result']['content'][0]['text'] ?? '{}';
+    $decodedData = json_decode($rawContent, true);
+    $indicators  = $decodedData['data']['indicator'] ?? [];
+
+    if (empty($indicators)) {
+        Log::info("No indicators found for {$datasetSource}.");
+        return;
+    }
+
+    Log::info("Fetched total indicators from API: " . count($indicators));
+
+    $totalDatasetRowsInserted = 0;
+
+    foreach ($indicators as $indicator) {
+        $apiIndicatorName = trim($indicator['description'] ?? $indicator['name'] ?? '');
+        $apiIndicatorCode = $indicator['indicator_code'] ?? null;
+
+        if (!$apiIndicatorCode || !$apiIndicatorName) continue;
+
+        // Select Data Source
+        if (stristr($apiIndicatorName, 'General Index') !== false) {
+            $currentDs  = $generalDs;
+            $prefixCode = 'CPIALRL_GI_';
+        } else {
+            $currentDs  = $groupDs;
+            $prefixCode = 'CPIALRL_GRP_';
+        }
+
+        // 4. Indicator Check & Update/Create
+        $indicatorModels = [];
+        foreach ($valueColumns as $columnKey => $config) {
+            $fullIndicatorName = $apiIndicatorName . ' - ' . $config['name'];
+            $fullIndicatorCode = $prefixCode . $apiIndicatorCode . '_' . $config['code_suffix'];
+
+            $indModel = Indicator::where('indicator_code', (string) $fullIndicatorCode)
+                ->orWhere(function ($q) use ($currentDs, $fullIndicatorName) {
+                    $q->where('data_source_id', $currentDs->id)
+                      ->where('name', $fullIndicatorName);
+                })
+                ->first();
+
+            if ($indModel) {
+                $indModel->update([
+                    'data_source_id' => $currentDs->id,
+                    'name'           => $fullIndicatorName,
+                    'indicator_code' => (string) $fullIndicatorCode,
+                    'is_synced'      => false,
+                ]);
+                Log::info("Indicator Updated in MySQL", [
+                    'id'             => $indModel->id,
+                    'code'           => $fullIndicatorCode,
+                    'data_source_id' => $currentDs->id
+                ]);
+            } else {
+                $indModel = Indicator::create([
+                    'data_source_id' => $currentDs->id,
+                    'name'           => $fullIndicatorName,
+                    'indicator_code' => (string) $fullIndicatorCode,
+                    'is_synced'      => false,
+                ]);
+                Log::info("Indicator Created in MySQL", [
+                    'id'             => $indModel->id,
+                    'code'           => $fullIndicatorCode,
+                    'data_source_id' => $currentDs->id
+                ]);
+            }
+
+            $indicatorModels[$columnKey] = $indModel;
+        }
+
+        // 5. Push to BigQuery Buffer
+        $page = 1;
+        $indicatorInsertedRows = 0;
+
+        do {
+            $datasetResponse = $this->callMospiApi('get_data', [
+                'dataset' => $datasetSource,
+                'filters' => [
+                    'page'           => (string) $page,
+                    'indicator_code' => $apiIndicatorCode,
+                ]
             ]);
 
-            if (!$indicatorsResponse || !empty($indicatorsResponse['result']['isError'])) {
-                Log::error("Failed to fetch indicators for dataset {$datasetSource}");
-                return;
+            if (!$datasetResponse || !empty($datasetResponse['result']['isError'])) {
+                Log::warning("API call failed for indicator: {$apiIndicatorCode} at page {$page}");
+                break;
             }
 
-            $rawContent  = $indicatorsResponse['result']['content'][0]['text'] ?? '{}';
-            $decodedData = json_decode($rawContent, true);
-            $indicators  = $decodedData['data']['indicator'] ?? [];
+            $structuredContent = $datasetResponse['result']['structuredContent'] ?? [];
+            $records  = $structuredContent['data'] ?? [];
+            $metaData = $structuredContent['meta_data'] ?? [];
 
-            if (empty($indicators)) {
-                Log::info("No indicators found for {$datasetSource}.");
-                return;
-            }
-               Log::info("indicator data",['indicators' => $indicators]);                     
-            foreach ($indicators as $indicator) {
-                $indicatorCode = $indicator['indicator_code'] ?? null;
-                $indicatorName = $indicator['description'];
-                if (!$indicatorCode) continue;
+            if (!empty($records)) {
+                $pageInsertedCount = 0;
 
-                // Default to main data source ID
-                $currentDataSourceId = $dataSourceId;
-                  if (!$indicatorCode) continue;
+                foreach ($records as $record) {
+                    $rawStateName = (string) ($record['state'] ?? $record['state_ut'] ?? '');
+                    $stateId      = StateResolverService::getOrCreateStateId($rawStateName);
 
-                 $indicatorModel = Indicator::updateOrCreate(
-                    [
-                        'data_source_id' => $currentDataSourceId,
-                        'indicator_code' => (string) $indicatorCode,
-                    ],
-                    [
-                        'name'      => $indicatorName,
-                        'is_synced' => false,
-                    ]
-                );
-
-                Log::info("Saved Indicator into MySQL DB -> ID: {$indicatorModel->id} | Code: {$indicatorCode} | DataSource ID: {$dataSourceId}");
-
-                   
-                $page = 1;
-                $indicatorInsertedRows = 0; // Track per-indicator rows for clear logging
-
-                do {
-                    $datasetResponse = $this->callMospiApi('get_data', [
-                        'dataset' => $datasetSource,
-                        'filters' => [
-                            'page'           => (string) $page,
-                            'indicator_code' => $indicatorCode,
-                        ]
+                    // Standard Keys Exclusion (Baki sab additional_filters me jayenge)
+                    $customStandardKeys = array_merge($standardKeys ?? [], [
+                        'state', 'state_ut', 'year', 'time_period', 'value',
+                        'index_al', 'index_rl', 'inflation_al', 'inflation_rl',
+                        'index al', 'index rl', 'inflation al', 'inflation rl'
                     ]);
+                    
+                    $additionalFilters = array_diff_key($record, array_flip($customStandardKeys));
 
-                    if (!$datasetResponse || !empty($datasetResponse['result']['isError'])) {
-                        Log::warning("API call failed or returned empty for indicator: {$indicatorCode} at page {$page}");
-                        break;
-                    }
+                    foreach ($indicatorModels as $columnKey => $indModel) {
+                        $config = $valueColumns[$columnKey];
 
-                    $structuredContent = $datasetResponse['result']['structuredContent'] ?? [];
-                    $records  = $structuredContent['data'] ?? [];
-                    $metaData = $structuredContent['meta_data'] ?? [];
+                        $val = $record[$columnKey] 
+                            ?? $record[strtolower(str_replace('_', ' ', $columnKey))] 
+                            ?? $record[$config['name']] 
+                            ?? null;
 
-                    if (!empty($records)) {
-                        foreach ($records as $record) {
-                            $rawStateName = (string) ($record['state'] ?? $record['state_ut'] ?? '');
-                            $stateId      = StateResolverService::getOrCreateStateId($rawStateName);
+                        if ($val === null || $val === '') continue;
 
-                            $additionalFilters = array_diff_key($record, array_flip($standardKeys));
+                        $batchBuffer[] = [
+                            'data' => [
+                                'data_source_id'     => $currentDs->id,
+                                'indicator_id'       => $indModel->id,
+                                'state_id'           => $stateId,
+                                'year'               => (string) ($record['year'] ?? $record['time_period'] ?? ''),
+                                'value'              => is_numeric($val) ? (float) $val : null,
+                                'additional_filters' => !empty($additionalFilters) ? json_encode($additionalFilters) : null,
+                                'created_at'         => date('Y-m-d H:i:s'),
+                            ]
+                        ];
 
-                            $batchBuffer[] = [
-                                'data' => [
-                                    'data_source_id'     => $currentDataSourceId,
-                                    'indicator_id'       => $indicatorModel->id,
-                                    'state_id'           => $stateId,
-                                    'year'               => (string) ($record['year'] ?? $record['time_period'] ?? ''),
-                                    'value'              => is_numeric($record['value'] ?? null) ? (float) $record['value'] : null,
-                                    'additional_filters' => !empty($additionalFilters) ? json_encode($additionalFilters) : null,
-                                    'created_at'         => date('Y-m-d H:i:s'),
-                                ]
-                            ];
+                        $indicatorInsertedRows++;
+                        $pageInsertedCount++;
+                        $totalDatasetRowsInserted++;
 
-                            $indicatorInsertedRows++;
-
-                            // Flush when buffer reaches 500
-                            if (count($batchBuffer) >= $batchSize) {
-                                $flushBatch();
-                            }
+                        if (count($batchBuffer) >= $batchSize) {
+                            $flushBatch();
+                            Log::info("Flushed batch buffer to BigQuery", ['buffer_count' => $batchSize]);
                         }
                     }
+                }
 
-                    $totalPages = $metaData['totalPages'] ?? 1;
-                    $page++;
-                } while ($page <= $totalPages);
-
-                $flushBatch();
-
-                $savedIndicatorsCount++;
-
-                Log::info("Progress update: Processed indicator {$savedIndicatorsCount}/" . count($indicators) . " ({$indicatorCode}). Added {$indicatorInsertedRows} rows. Total BigQuery rows so far: {$totalSavedRecords}");
+                Log::info("Page {$page} processed for indicator {$apiIndicatorCode}: {$pageInsertedCount} rows added to batch.");
             }
-        }
+
+            $totalPages = $metaData['totalPages'] ?? 1;
+            $page++;
+        } while ($page <= $totalPages);
+
+        $flushBatch();
+        $savedIndicatorsCount++;
+
+        Log::info("Progress Summary: Processed indicator {$savedIndicatorsCount}/" . count($indicators) . " ({$apiIndicatorCode}). Rows added for this indicator: {$indicatorInsertedRows}. Total BigQuery rows inserted so far: {$totalDatasetRowsInserted}");
+    }
+
+    Log::info("=== Completed CPIALRL Dataset Sync Process. Total BigQuery rows inserted: {$totalDatasetRowsInserted} ===");
+}
         // working 
         // else if ($datasetSource === "UDISE") {
         //     $indicatorsResponse = $this->callMospiApi('get_indicators', [
@@ -2446,7 +2557,7 @@ class ProcessSourceDataImportJob implements ShouldQueue
                         foreach ($nicTypes as $nic_type) {
                             $combinationKey = [
                                 'data_source_id'      => $currentDataSourceId,
-                                'indicator_code'      => (string) $indicatorCode,
+                                'indicator_code'      => $indicatorModel->id,
                                 'classification_year' => $classification_year,
                                 'sector_code'         => $sector_code,
                                 'nic_type'            => $nic_type,
@@ -2528,7 +2639,6 @@ class ProcessSourceDataImportJob implements ShouldQueue
                                                         'insertId' => $buidInsertId,
                                                         'data' => [
                                                             'data_source_id'     => $currentDataSourceId,
-                                                            // Yahan $indicatorCode ko hata kar $indicatorModel->id set karein
                                                             'indicator_id'       => $indicatorModel->id, 
                                                             'state_id'           => $stateId,
                                                             'year'               => (string) ($record['year'] ?? $record['time_period'] ?? ''),
@@ -2582,21 +2692,64 @@ class ProcessSourceDataImportJob implements ShouldQueue
         // CPI DATASET BLOCK (Pushing to BigQuery)
         // ==========================================
         else if ($datasetSource === "CPI") {
-            Log::info("Starting CPI data import into BigQuery.");
+            Log::info("Starting CPI data import using ASI-like synchronous fetching.");
 
-            $cpiIndexDataSource = DataSource::firstOrCreate(
+            $combinationKey = [
+                'data_source_id'      => $dataSourceId,
+                'indicator_code'      => 'CPI_ALL_ITEMS',
+                'classification_year' => '2026',
+            ];
+
+            $existingTracker = \Illuminate\Support\Facades\DB::table('dataset_import_trackers')->where($combinationKey)->first();
+
+            if ($existingTracker && $existingTracker->status === 'completed') {
+                Log::info("Skipping CPI import already completed.");
+                return;
+            }
+
+            if ($existingTracker) {
+                \Illuminate\Support\Facades\DB::table('dataset_import_trackers')
+                    ->where('id', $existingTracker->id)
+                    ->update([
+                        'status'     => 'processing',
+                        'updated_at' => now(),
+                    ]);
+            } else {
+                \Illuminate\Support\Facades\DB::table('dataset_import_trackers')->insert(array_merge($combinationKey, [
+                    'status'       => 'processing',
+                    'fetched_rows' => 0,
+                    'created_at'   => now(),
+                    'updated_at'   => now(),
+                ]));
+            }
+
+            // 1. Create or Update Data Sources for Index and Inflation
+            $cpiIndexDataSource = DataSource::updateOrCreate(
                 ['title' => 'CPI Index', 'parent_datasource_id' => $dataSourceId],
-                ['dataset_id'  => 'CPI_INDEX', 'description' => 'CPI Index Data', 'is_synced'   => false]
+                [
+                    'dataset_id' => 'CPI_INDEX',
+                    'description' => 'CPI Index Data',
+                    'is_synced' => false
+                ]
             );
 
-            $cpiInflationDataSource = DataSource::firstOrCreate(
+            $cpiInflationDataSource = DataSource::updateOrCreate(
                 ['title' => 'CPI Inflation', 'parent_datasource_id' => $dataSourceId],
-                ['dataset_id'  => 'CPI_INFLATION', 'description' => 'CPI Inflation Data', 'is_synced'   => false]
+                [
+                    'dataset_id' => 'CPI_INFLATION',
+                    'description' => 'CPI Inflation Data',
+                    'is_synced' => false
+                ]
             );
 
+            // 2. Fetch CPI Data using do-while loop (similar to ASI)
             $page = 1;
+            $cpiInsertedRows = 0;
+
             do {
                 $apiUrl = "https://api.mospi.gov.in/api/cpi/getCPIData";
+                
+                // base_year and year are fixed as requested by user
                 $queryString = http_build_query([
                     'base_year' => '2024',
                     'year'      => '2026',
@@ -2605,82 +2758,76 @@ class ProcessSourceDataImportJob implements ShouldQueue
                 ]);
 
                 $fullUrl = $apiUrl . '?' . $queryString;
-                Log::info("Calling CPI API Page {$page}: {$fullUrl}");
+                $command = sprintf('curl -s -k -X GET "%s"', $fullUrl);
+                
+                $retryCount = 0;
+                $maxRetries = 3;
+                $datasetResponse = null;
+                $responseSuccessful = false;
 
-                // Added timeouts to curl (--connect-timeout 10 -m 30) to prevent hanging
-                $command = sprintf('curl -s -k --connect-timeout 10 -m 30 -X GET "%s"', $fullUrl);
-                $output = shell_exec($command);
-
-                if (empty($output)) {
-                    Log::error("CPI API returned empty response on Page {$page}");
-                    break;
+                while ($retryCount < $maxRetries) {
+                    $output = shell_exec($command);
+                    $datasetResponse = json_decode($output, true);
+                    
+                    if (!empty($datasetResponse)) {
+                        $responseSuccessful = true;
+                        break;
+                    }
+                    
+                    $retryCount++;
+                    Log::warning("CPI API call failed at page {$page}. Retry {$retryCount}/{$maxRetries}...");
+                    sleep(2);
                 }
 
-                $datasetResponse = json_decode($output, true);
+                sleep(1);
 
-                if (json_last_error() !== JSON_ERROR_NONE) {
-                    Log::error("CPI API JSON Decode Error on Page {$page}: " . json_last_error_msg(), [
-                        'raw_output' => substr($output, 0, 500) // Log first 500 chars of response
-                    ]);
+                if (!$responseSuccessful) {
+                    Log::error("CPI API call permanently failed after {$maxRetries} retries at page {$page}");
                     break;
                 }
 
                 $records  = $datasetResponse['data'] ?? [];
                 $metaData = $datasetResponse['meta_data'] ?? [];
 
-                Log::info("CPI API Page {$page} fetched. Records count: " . count($records));
-
                 if (!empty($records)) {
-                    foreach ($records as $record) {
-                        $divisionName  = (string) ($record['division'] ?? 'Unknown');
-                        $code          = (string) ($record['code'] ?? '');
-                        $indicatorCode = !empty($code) ? $code : "CPI_" . md5($divisionName);
+                    foreach ($records as $index => $record) {
+                        // Log::info("CPI record fetched | Page: {$page} | Index: {$index} | Record: " . json_encode($record));
 
-                        // 1. CPI Index ke liye Indicator Create / Update
-                        $cpiIndexIndicator = Indicator::updateOrCreate(
+                        $division = (string) ($record['division'] ?? 'Unknown');
+                        $code = (string) ($record['code'] ?? '');
+                        
+                        // Use division as indicator name, and code (or division hash) as indicator_code
+                        $indicatorCode = !empty($code) ? $code : "";
+                        
+                        // Create/Update Indicator for CPI Index
+                        $indicatorIndex = Indicator::updateOrCreate(
                             [
                                 'data_source_id' => $cpiIndexDataSource->id,
-                                'indicator_code' => $indicatorCode,
+                                'name'           => $division,
                             ],
                             [
-                                'name'      => $divisionName,
-                                'is_synced' => false,
+                                'indicator_code' => $indicatorCode,
+                                'is_synced'      => false,
                             ]
                         );
 
-                        Log::info("CPI Index Indicator processed", [
-                            'action'         => $cpiIndexIndicator->wasRecentlyCreated ? 'CREATED' : 'UPDATED',
-                            'indicator_id'   => $cpiIndexIndicator->id,
-                            'indicator_code' => $cpiIndexIndicator->indicator_code,
-                            'indicator_name' => $cpiIndexIndicator->name,
-                            'data_source_id' => $cpiIndexDataSource->id
-                        ]);
-
-                        // 2. CPI Inflation ke liye Indicator Create / Update
-                        $cpiInflationIndicator = Indicator::updateOrCreate(
+                        // Create/Update Indicator for CPI Inflation
+                        $indicatorInflation = Indicator::updateOrCreate(
                             [
                                 'data_source_id' => $cpiInflationDataSource->id,
-                                'indicator_code' => $indicatorCode,
+                                'name'           => $division,
                             ],
                             [
-                                'name'      => $divisionName,
-                                'is_synced' => false,
+                                'indicator_code' => $indicatorCode,
+                                'is_synced'      => false,
                             ]
                         );
-
-                        Log::info("CPI Inflation Indicator processed", [
-                            'action'         => $cpiInflationIndicator->wasRecentlyCreated ? 'CREATED' : 'UPDATED',
-                            'indicator_id'   => $cpiInflationIndicator->id,
-                            'indicator_code' => $cpiInflationIndicator->indicator_code,
-                            'indicator_name' => $cpiInflationIndicator->name,
-                            'data_source_id' => $cpiInflationDataSource->id
-                        ]);
 
                         $rawStateName = (string) ($record['state'] ?? '');
                         $stateId      = StateResolverService::getOrCreateStateId($rawStateName);
                         $yearVal      = (string) ($record['year'] ?? '');
-
-                        $additionalFilters = array_filter([
+                        
+                        $additionalFilters = [
                             'class'      => $record['class'] ?? null,
                             'group'      => $record['group'] ?? null,
                             'imputation' => $record['imputation'] ?? null,
@@ -2690,55 +2837,80 @@ class ProcessSourceDataImportJob implements ShouldQueue
                             'series'     => $record['series'] ?? null,
                             'sub_class'  => $record['sub_class'] ?? null,
                             'base_year'  => $record['base_year'] ?? null,
-                        ], fn($val) => $val !== null);
+                        ];
 
-                        // 3. Buffer Index Data for BigQuery
-                        if (isset($record['index']) && is_numeric($record['index'])) {
+                        // Remove null values to keep it clean
+                        $additionalFilters = array_filter($additionalFilters, function($val) { return $val !== null; });
+
+                        // Generate insertId based on page and index to prevent retry duplicates
+                        $uniqueIdString = "CPI_{$page}_{$index}";
+                        $buidInsertIdIndex = md5($uniqueIdString . '_index');
+                        $buidInsertIdInflation = md5($uniqueIdString . '_inflation');
+
+
                             $batchBuffer[] = [
+                                'insertId' => $buidInsertIdIndex,
                                 'data' => [
                                     'data_source_id'     => $cpiIndexDataSource->id,
-                                    'indicator_id'       => (string) $cpiIndexIndicator->id,
+                                    'indicator_id'       => $indicatorIndex->id,
                                     'state_id'           => $stateId,
                                     'year'               => $yearVal,
-                                    'value'              => (float) $record['index'],
+                                    'value'              => is_numeric($record['index'] ?? null) ? (float) $record['index'] : null,
                                     'additional_filters' => !empty($additionalFilters) ? json_encode($additionalFilters) : null,
                                     'created_at'         => date('Y-m-d H:i:s'),
                                 ]
                             ];
-                        }
 
-                        // 4. Buffer Inflation Data for BigQuery
-                        if (isset($record['inflation']) && is_numeric($record['inflation'])) {
                             $batchBuffer[] = [
+                                'insertId' => $buidInsertIdInflation,
                                 'data' => [
                                     'data_source_id'     => $cpiInflationDataSource->id,
-                                    'indicator_id'       => (string) $cpiInflationIndicator->id,
+                                    'indicator_id'       => $indicatorInflation->id,
                                     'state_id'           => $stateId,
                                     'year'               => $yearVal,
-                                    'value'              => (float) $record['inflation'],
+                                    'value'              => is_numeric($record['inflation'] ?? null) ? (float) $record['inflation'] : null,
                                     'additional_filters' => !empty($additionalFilters) ? json_encode($additionalFilters) : null,
                                     'created_at'         => date('Y-m-d H:i:s'),
                                 ]
                             ];
-                        }
+
+                           
+
 
                         if (count($batchBuffer) >= $batchSize) {
                             $flushBatch();
                         }
+
+                        $cpiInsertedRows++;
                     }
-                } else {
-                    Log::warning("No records found in API response for CPI Page {$page}");
                 }
 
                 $totalPages = $metaData['totalPages'] ?? 1;
                 $page++;
-
+                
+                if ($page % 100 === 0) {
+                    Log::info("CPI fetched page {$page} out of {$totalPages}. Rows processed so far: {$cpiInsertedRows}");
+                }
+                
             } while ($page <= $totalPages);
 
             $flushBatch();
-            Log::info("CPI Import into BigQuery completed successfully.");
-        }
 
+            \Illuminate\Support\Facades\DB::table('dataset_import_trackers')->updateOrInsert(
+                [
+                    'data_source_id'      => $dataSourceId,
+                    'indicator_code'      => 'CPI_ALL_ITEMS',
+                    'classification_year' => '2026', // Tracker year as per the fixed API request
+                ],
+                [
+                    'status'       => 'completed',
+                    'fetched_rows' => $cpiInsertedRows,
+                    'updated_at'   => now(),
+                ]
+            );
+
+            Log::info("CPI Import completed. Total rows processed: {$cpiInsertedRows}");
+        }
 
 }
 
