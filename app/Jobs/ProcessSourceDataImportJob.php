@@ -1886,6 +1886,139 @@ class ProcessSourceDataImportJob implements ShouldQueue
             Log::info("UDISE import completed. BigQuery rows: {$totalSavedRecords}, Indicators: {$savedIndicatorsCount}");
         }
 
+        // else if ($datasetSource === "ASUSE") {
+        //     $indicatorsResponse = $this->callMospiApi('get_indicators', [
+        //         'dataset' => $datasetSource
+        //     ]);
+
+        //     if (!$indicatorsResponse || !empty($indicatorsResponse['result']['isError'])) {
+        //         Log::error("Failed to fetch indicators for dataset {$datasetSource}");
+        //         return;
+        //     }
+
+        //     $rawContent  = $indicatorsResponse['result']['content'][0]['text'] ?? '{}';
+        //     $decodedData = json_decode($rawContent, true);
+        //     $data = $decodedData['indicators_by_frequency'] ?? [];
+        //     $indicators = [];
+
+        //     foreach ($data as $d) {
+        //         $indicators = array_merge($indicators, $d);
+        //     }
+
+        //     if (empty($indicators)) {
+        //         Log::info("No indicators found for {$datasetSource}.");
+        //         return;
+        //     }
+
+        //     // FIX HERE: {$indicators} ki jagah count($indicators) use kiya hai taaki array-to-string error na aaye
+        //     // Log::info("indicatorsResponse for total " . count($indicators) . " indicators: " . json_encode($indicatorsResponse));
+
+        //     foreach ($indicators as $indicator) {
+        //         $indicatorCode = $indicator['indicator_code'] ?? null;
+        //         $indicatorName = $indicator['description'] ??
+        //                          $indicator['definition'] ??
+        //                          null;
+
+        //         $currentDataSourceId = $dataSourceId;
+
+        //         if (!$indicatorCode) continue;
+
+        //         // =========================================================================
+        //         // STEP 2: PEHLE MYSQL 'indicators' TABLE MEIN ENTRY SAVE KAREIN
+        //         // =========================================================================
+        //         $indicatorModel = Indicator::updateOrCreate(
+        //             [
+        //                 'data_source_id' => $currentDataSourceId,
+        //                 'indicator_code' => (string) $indicatorCode,
+        //             ],
+        //             [
+        //                 'name'      => $indicatorName,
+        //                 'is_synced' => false,
+        //             ]
+        //         );
+
+        //         Log::info("Saved Indicator into MySQL -> ID: {$indicatorModel->id} | Code: {$indicatorCode} | Name: '{$indicatorName}' | DataSource ID: {$currentDataSourceId}");
+
+        //         $page = 1;
+        //         $indicatorInsertedRows = 0;
+
+                        
+
+        //         // do {
+        //         //     $datasetResponse = $this->callMospiApi('get_data', [
+        //         //         'dataset' => $datasetSource,
+        //         //         'filters' => [
+        //         //             'page'           => (string) $page,
+        //         //             'indicator_code' => $indicatorCode,
+        //         //         ]
+        //         //     ]);
+
+        //         //     if (!$datasetResponse || !empty($datasetResponse['result']['isError'])) {
+        //         //         Log::warning("API call failed or returned empty for indicator: {$indicatorCode} at page {$page}");
+        //         //         break;
+        //         //     }
+
+        //         //     $structuredContent = $datasetResponse['result']['structuredContent'] ?? [];
+        //         //     $records  = $structuredContent['data'] ?? [];
+        //         //     $metaData = $structuredContent['meta_data'] ?? [];
+
+        //         //         if (!empty($records)) {
+        //         //             foreach ($records as $record) {
+        //         //                 // 1. Case-sensitive aur variations ko handle karte hue State Name extract karein
+        //         //                 $rawStateName = (string) (
+        //         //                     $record['state'] ?? 
+        //         //                     $record['state_ut'] ?? 
+        //         //                     $record['state/UT'] ?? // <-- Aapke data ke hisab se capital UT
+        //         //                     $record['state/ut'] ?? 
+        //         //                     $record['state_name'] ?? 
+        //         //                     ''
+        //         //                 );
+                                
+        //         //                 $rawStateName = trim($rawStateName);
+        //         //                 $stateId = StateResolverService::getOrCreateStateId($rawStateName);
+
+        //         //                 // 2. Sabhi possible combinations ko filter out karne ke liye keys array
+        //         //                 $stateKeysToExclude = ['state', 'state_ut', 'state/UT', 'state/ut', 'state_name', 'state_code'];
+        //         //                 $otherStandardKeys = $standardKeys ?? ['year', 'time_period', 'value'];
+                                
+        //         //                 $currentStandardKeys = array_merge($otherStandardKeys, $stateKeysToExclude);
+                                
+        //         //                 // 3. Filters se state fields ko alag karein taaki duplicate na ho
+        //         //                 $additionalFilters = array_diff_key($record, array_flip($currentStandardKeys));
+
+        //         //                 $batchBuffer[] = [
+        //         //                     'data' => [
+        //         //                         'data_source_id'     => $currentDataSourceId,
+        //         //                         'indicator_id'       => $indicatorCode,
+        //         //                         'state_id'           => $stateId,
+        //         //                         'year'               => (string) ($record['year'] ?? $record['time_period'] ?? ''),
+        //         //                         'value'              => is_numeric($record['value'] ?? null) ? (float) $record['value'] : null,
+        //         //                         'additional_filters' => !empty($additionalFilters) ? json_encode($additionalFilters) : null,
+        //         //                         'created_at'         => date('Y-m-d H:i:s'),
+        //         //                     ]
+        //         //                 ];
+
+        //         //                 $indicatorInsertedRows++;
+
+        //         //                 // Flush when buffer reaches 500
+        //         //                 if (count($batchBuffer) >= $batchSize) {
+        //         //                     $flushBatch();
+        //         //                 }
+        //         //             }
+        //         //         }
+
+        //         //     $totalPages = $metaData['totalPages'] ?? 1;
+        //         //     $page++;
+        //         // } while ($page <= $totalPages);
+
+        //         // $flushBatch();
+
+        //         // $savedIndicatorsCount++;
+
+        //         // Log::info("Progress update: Processed indicator {$savedIndicatorsCount}/" . count($indicators) . " ({$indicatorCode}). Added {$indicatorInsertedRows} rows. Total BigQuery rows so far: {$totalSavedRecords}");
+        //     }
+
+        // }
         else if ($datasetSource === "ASUSE") {
             $indicatorsResponse = $this->callMospiApi('get_indicators', [
                 'dataset' => $datasetSource
@@ -1896,130 +2029,197 @@ class ProcessSourceDataImportJob implements ShouldQueue
                 return;
             }
 
-            $rawContent  = $indicatorsResponse['result']['content'][0]['text'] ?? '{}';
-            $decodedData = json_decode($rawContent, true);
-            $data = $decodedData['indicators_by_frequency'] ?? [];
-            $indicators = [];
+            $indicatorsByFrequency =
+                $indicatorsResponse['result']['structuredContent']['indicators_by_frequency']
+                ?? [];
 
-            foreach ($data as $d) {
-                $indicators = array_merge($indicators, $d);
+            if (empty($indicatorsByFrequency)) {
+                $rawContent  = $indicatorsResponse['result']['content'][0]['text'] ?? '{}';
+                $decodedData = json_decode($rawContent, true);
+                $indicatorsByFrequency = $decodedData['indicators_by_frequency'] ?? [];
             }
 
-            if (empty($indicators)) {
+            if (empty($indicatorsByFrequency)) {
                 Log::info("No indicators found for {$datasetSource}.");
                 return;
             }
 
-            // FIX HERE: {$indicators} ki jagah count($indicators) use kiya hai taaki array-to-string error na aaye
-            // Log::info("indicatorsResponse for total " . count($indicators) . " indicators: " . json_encode($indicatorsResponse));
+            $asusePageLimit = max(100, (int) config('services.mospi.page_limit', 2000));
+            $pageRetries    = max(1, (int) config('services.mospi.page_retries', 5));
+            $asuseIncomplete = false;
+            $totalIndicatorCount = 0;
 
-            foreach ($indicators as $indicator) {
-                $indicatorCode = $indicator['indicator_code'] ?? null;
-                $indicatorName = $indicator['description'] ??
-                                 $indicator['definition'] ??
-                                 null;
-
-                $currentDataSourceId = $dataSourceId;
-
-                if (!$indicatorCode) continue;
-
-                // =========================================================================
-                // STEP 2: PEHLE MYSQL 'indicators' TABLE MEIN ENTRY SAVE KAREIN
-                // =========================================================================
-                $indicatorModel = Indicator::updateOrCreate(
-                    [
-                        'data_source_id' => $currentDataSourceId,
-                        'indicator_code' => (string) $indicatorCode,
-                    ],
-                    [
-                        'name'      => $indicatorName,
-                        'is_synced' => false,
-                    ]
-                );
-
-                Log::info("Saved Indicator into MySQL -> ID: {$indicatorModel->id} | Code: {$indicatorCode} | Name: '{$indicatorName}' | DataSource ID: {$currentDataSourceId}");
-
-                $page = 1;
-                $indicatorInsertedRows = 0;
-
-                        
-
-                // do {
-                //     $datasetResponse = $this->callMospiApi('get_data', [
-                //         'dataset' => $datasetSource,
-                //         'filters' => [
-                //             'page'           => (string) $page,
-                //             'indicator_code' => $indicatorCode,
-                //         ]
-                //     ]);
-
-                //     if (!$datasetResponse || !empty($datasetResponse['result']['isError'])) {
-                //         Log::warning("API call failed or returned empty for indicator: {$indicatorCode} at page {$page}");
-                //         break;
-                //     }
-
-                //     $structuredContent = $datasetResponse['result']['structuredContent'] ?? [];
-                //     $records  = $structuredContent['data'] ?? [];
-                //     $metaData = $structuredContent['meta_data'] ?? [];
-
-                //         if (!empty($records)) {
-                //             foreach ($records as $record) {
-                //                 // 1. Case-sensitive aur variations ko handle karte hue State Name extract karein
-                //                 $rawStateName = (string) (
-                //                     $record['state'] ?? 
-                //                     $record['state_ut'] ?? 
-                //                     $record['state/UT'] ?? // <-- Aapke data ke hisab se capital UT
-                //                     $record['state/ut'] ?? 
-                //                     $record['state_name'] ?? 
-                //                     ''
-                //                 );
-                                
-                //                 $rawStateName = trim($rawStateName);
-                //                 $stateId = StateResolverService::getOrCreateStateId($rawStateName);
-
-                //                 // 2. Sabhi possible combinations ko filter out karne ke liye keys array
-                //                 $stateKeysToExclude = ['state', 'state_ut', 'state/UT', 'state/ut', 'state_name', 'state_code'];
-                //                 $otherStandardKeys = $standardKeys ?? ['year', 'time_period', 'value'];
-                                
-                //                 $currentStandardKeys = array_merge($otherStandardKeys, $stateKeysToExclude);
-                                
-                //                 // 3. Filters se state fields ko alag karein taaki duplicate na ho
-                //                 $additionalFilters = array_diff_key($record, array_flip($currentStandardKeys));
-
-                //                 $batchBuffer[] = [
-                //                     'data' => [
-                //                         'data_source_id'     => $currentDataSourceId,
-                //                         'indicator_id'       => $indicatorCode,
-                //                         'state_id'           => $stateId,
-                //                         'year'               => (string) ($record['year'] ?? $record['time_period'] ?? ''),
-                //                         'value'              => is_numeric($record['value'] ?? null) ? (float) $record['value'] : null,
-                //                         'additional_filters' => !empty($additionalFilters) ? json_encode($additionalFilters) : null,
-                //                         'created_at'         => date('Y-m-d H:i:s'),
-                //                     ]
-                //                 ];
-
-                //                 $indicatorInsertedRows++;
-
-                //                 // Flush when buffer reaches 500
-                //                 if (count($batchBuffer) >= $batchSize) {
-                //                     $flushBatch();
-                //                 }
-                //             }
-                //         }
-
-                //     $totalPages = $metaData['totalPages'] ?? 1;
-                //     $page++;
-                // } while ($page <= $totalPages);
-
-                // $flushBatch();
-
-                // $savedIndicatorsCount++;
-
-                // Log::info("Progress update: Processed indicator {$savedIndicatorsCount}/" . count($indicators) . " ({$indicatorCode}). Added {$indicatorInsertedRows} rows. Total BigQuery rows so far: {$totalSavedRecords}");
+            foreach ($indicatorsByFrequency as $frequencyIndicators) {
+                if (is_array($frequencyIndicators)) {
+                    $totalIndicatorCount += count($frequencyIndicators);
+                }
             }
 
-        }
+            $asuseStandardKeys = array_merge($standardKeys, [
+                'state/UT',
+                'state/ut',
+                'state_name',
+                'state_code',
+                'frequency',
+            ]);
 
+            $frequencyIndex = 0;
+
+            foreach ($indicatorsByFrequency as $frequencyKey => $indicators) {
+                if (!is_array($indicators)) {
+                    continue;
+                }
+
+                if (preg_match('/frequency_code_(\d+)/', (string) $frequencyKey, $matches)) {
+                    $frequencyCode = (int) $matches[1];
+                } else {
+                    $frequencyIndex++;
+                    $frequencyCode = $frequencyIndex;
+                }
+
+                foreach ($indicators as $indicator) {
+                    $indicatorCode = $indicator['indicator_code'] ?? null;
+                    $indicatorName = $indicator['description']
+                        ?? $indicator['definition']
+                        ?? $indicator['indicator_name']
+                        ?? $indicator['name']
+                        ?? 'Unknown Indicator';
+
+                    if (!$indicatorCode) {
+                        continue;
+                    }
+
+                    $indicatorModel = Indicator::updateOrCreate(
+                        [
+                            'data_source_id' => $dataSourceId,
+                            'indicator_code' => (string) $indicatorCode,
+                        ],
+                        [
+                            'name'      => $indicatorName,
+                            'is_synced' => false,
+                        ]
+                    );
+
+                    Log::info("Saved Indicator into MySQL DB -> ID: {$indicatorModel->id} | Code: {$indicatorCode} | DataSource ID: {$dataSourceId} | Frequency: {$frequencyCode}");
+
+                    $page = 1;
+                    $totalPages = null;
+                    $expectedRecords = null;
+                    $indicatorInsertedRows = 0;
+                    $indicatorFailed = false;
+
+                    do {
+                        $datasetResponse = null;
+                        $records = [];
+
+                        for ($attempt = 1; $attempt <= $pageRetries; $attempt++) {
+                            $datasetResponse = $this->callMospiApi('get_data', [
+                                'dataset' => $datasetSource,
+                                'filters' => [
+                                    'page'           => (string) $page,
+                                    'indicator_code' => $indicatorCode,
+                                    'frequency_code' => $frequencyCode,
+                                    'limit'          => $asusePageLimit,
+                                ]
+                            ]);
+
+                            $structuredContent = $datasetResponse['result']['structuredContent'] ?? [];
+                            $records = $structuredContent['data'] ?? [];
+
+                            if (
+                                $datasetResponse
+                                && empty($datasetResponse['result']['isError'])
+                                && is_array($records)
+                                && (!empty($records) || $page > 1)
+                            ) {
+                                break;
+                            }
+
+                            sleep(min($attempt * 2, 8));
+                        }
+
+                        $structuredContent = $datasetResponse['result']['structuredContent'] ?? [];
+                        $records  = $structuredContent['data'] ?? [];
+                        $metaData = $structuredContent['meta_data'] ?? [];
+                        $totalPages ??= max(1, (int) ($metaData['totalPages'] ?? 1));
+                        $expectedRecords ??= (int) ($metaData['totalRecords'] ?? 0);
+
+                        if (!$datasetResponse || !empty($datasetResponse['result']['isError'])) {
+                            Log::warning("ASUSE API failed for indicator {$indicatorCode} freq {$frequencyCode} at page {$page}/{$totalPages}");
+                            $indicatorFailed = true;
+                            break;
+                        }
+
+                        if (empty($records) && $page < $totalPages) {
+                            Log::warning("ASUSE empty page for indicator {$indicatorCode} freq {$frequencyCode} at page {$page}/{$totalPages}");
+                            $indicatorFailed = true;
+                            break;
+                        }
+
+                        foreach ($records as $record) {
+                            $rawStateName = trim((string) (
+                                $record['state'] ??
+                                $record['state_ut'] ??
+                                $record['state/UT'] ??
+                                $record['state/ut'] ??
+                                $record['state_name'] ??
+                                ''
+                            ));
+                            $stateId = StateResolverService::getOrCreateStateId($rawStateName);
+
+                            $additionalFilters = array_diff_key($record, array_flip($asuseStandardKeys));
+                            $additionalFilters['frequency_code'] = $frequencyCode;
+
+                            $batchBuffer[] = [
+                                'data' => [
+                                    'data_source_id'     => $dataSourceId,
+                                    'indicator_id'       => $indicatorModel->id,
+                                    'state_id'           => $stateId,
+                                    'year'               => (string) ($record['year'] ?? $record['time_period'] ?? ''),
+                                    'value'              => is_numeric($record['value'] ?? null) ? (float) $record['value'] : null,
+                                    'additional_filters' => !empty($additionalFilters) ? json_encode($additionalFilters) : null,
+                                    'created_at'         => date('Y-m-d H:i:s'),
+                                ]
+                            ];
+
+                            $indicatorInsertedRows++;
+
+                            if (count($batchBuffer) >= $batchSize) {
+                                $flushBatch();
+                            }
+                        }
+
+                        $page++;
+                    } while ($page <= $totalPages);
+
+                    $flushBatch();
+
+                    $isComplete = !$indicatorFailed
+                        && ($expectedRecords === 0 || $indicatorInsertedRows >= $expectedRecords);
+
+                    $indicatorModel->update([
+                        'is_synced'      => $isComplete,
+                        'last_synced_at' => now(),
+                    ]);
+
+                    if (!$isComplete) {
+                        $asuseIncomplete = true;
+                        Log::warning("ASUSE incomplete indicator {$indicatorCode} freq {$frequencyCode}: saved={$indicatorInsertedRows}, expected={$expectedRecords}");
+                    }
+
+                    $savedIndicatorsCount++;
+
+                    Log::info("ASUSE progress: indicator {$savedIndicatorsCount}/{$totalIndicatorCount} ({$indicatorCode}, freq {$frequencyCode}). BigQuery rows: {$indicatorInsertedRows}/{$expectedRecords}. Total so far: {$totalSavedRecords}");
+                }
+            }
+
+            $this->dataSource->update([
+                'is_synced'      => !$asuseIncomplete,
+                'last_synced_at' => now(),
+            ]);
+
+            Log::info("ASUSE import completed. BigQuery rows: {$totalSavedRecords}, Indicators: {$savedIndicatorsCount}, complete=" . ($asuseIncomplete ? 'no' : 'yes'));
+        }
         // 
         // else if ($datasetSource === "ASI") {
         //     $indicatorsResponse = $this->callMospiApi('get_indicators', [
