@@ -2563,13 +2563,7 @@ class ProcessSourceDataImportJob implements ShouldQueue
                                 'nic_type'            => $nic_type,
                             ];
 
-                            $existingTracker = \Illuminate\Support\Facades\DB::table('dataset_import_trackers')->where($combinationKey)->first();
-
-                            // Tracker skip optional toggle
-                            // if ($existingTracker && $existingTracker->status === 'completed') {
-                            //     continue;
-                            // }
-
+                         
                             $page = 1;
                             $combinationInsertedRows = 0;
 
@@ -2700,7 +2694,6 @@ class ProcessSourceDataImportJob implements ShouldQueue
                 'classification_year' => '2026',
             ];
 
-            
 
             // 1. Create or Update Data Sources for Index and Inflation
             $cpiIndexDataSource = DataSource::updateOrCreate(
